@@ -1,21 +1,27 @@
+#!/usr/bin/env python3
+
 from os import system, name
-import threading
+import socket
+# import threading
 import random
-import time
 import re
 
+HOST = "192.168.0.10"  # Direccion de la interfaz de loopback estándar (localhost)
+PORT = 6061  # Puerto que usa el cliente  (los puertos sin provilegios son > 1023)
+buffer_size = 1024
+
 class levels:
-	# Begginer 8x8, 9x9 or 10x10 => 10 mines
-	# Intermediate 13x15 16x16 => 40 mines
+	# Begginer 9x9  => 10 mines
+	# Intermediate 16x16 => 40 mines
 	# Expert 30x16 => 99 mines
 	begginer = {
-		"base": 8,
-		"heigth": 8,
+		"base": 9,
+		"heigth": 9,
 		"mines": 10,
 	}
 	intermediate = {
-		"base": 15,
-		"heigth": 13,
+		"base": 16,
+		"heigth": 16,
 		"mines": 40,
 	}
 	expert = {
@@ -272,51 +278,63 @@ class GameBoard(PositiveList):
 			print(e)
 			input()
 			pass
-def startGame(gb):
+
+if __name__ == '__main__':
+
+	print(f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}")#Title
+	# Gameboard init
+	first_gameboard = GameBoard(levels.begginer)
+	first_gameboard.showGameBoard()
+	first_gameboard.printGameBoard()
+	# Socket init
+	tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	tcp_socket.bind((HOST, PORT))
+	tcp_socket.listen()
+	# Connection accept
+	conn, addr = tcp_socket.accept()
+	print("Conectado a", addr)
+
 	win = False
 	while not win:	
 		print(f"\n{bcolors.OKCYAN}{bcolors.UNDERLINE}Input format: 'h' for hit and 'f' for flag a cell and 'u' for unflag {bcolors.ENDC}")
 		print("\n")
-		s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", input())
+		data = conn.recv(buffer_size)
+		if not data:
+			break
+		movement = data.decode("utf-8")
+		s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", movement)
 		if s is not None and len(s.groups()) == 3:
 			cx, cy = map(int, s.groups()[1:])
 			if s.groups()[0] == "f":
-				gb.flagCell(cy,cx)
+				first_gameboard.flagCell(cy,cx)
+				conn.sendall(str.encode("200 OK"))
 			elif s.groups()[0] == "u":
-				gb.unflagCell(cy,cx)
+				first_gameboard.unflagCell(cy,cx)
+				conn.sendall(str.encode("200 OK"))
 			elif s.groups()[0] == "h":
-				gb.hitCell(cy, cx)
+				first_gameboard.hitCell(cy, cx)
+				conn.sendall(str.encode("200 OK"))
 			else:
 				print("Incorrect input format")
+				conn.sendall(str.encode("401 Incorrect format"))
 			clear()
-			gb.printGameBoard()
-			# print(f"Flags: {gb.flags}")
-			# print(f"Mines: {gb.mine_locations}")
-			if len(gb.flags) == len(gb.mine_locations):
+			first_gameboard.printGameBoard()
+			# print(f"Flags: {first_gameboard.flags}")
+			# print(f"Mines: {first_gameboard.mine_locations}")
+			if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
 				coincidences = 0
-				for i in gb.flags:
-					if i in gb.mine_locations:
+				for i in first_gameboard.flags:
+					if i in first_gameboard.mine_locations:
 						coincidences = coincidences + 1
-				if len(gb.mine_locations) == coincidences:
+				if len(first_gameboard.mine_locations) == coincidences:
 					win = True
 					print(f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}")
 					exit()
 		else:
 			print("Incorrect input format")
+			conn.sendall(str.encode("401 Incorrect format"))
+			data = None
 			action = cx = cy = None
 
-if __name__ == '__main__':
-	print(f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}")
-	first_gameboard = GameBoard(levels.begginer)
-	first_gameboard.showGameBoard()
-	first_gameboard.printGameBoard()
-	start = threading.Thread(target=startGame, args=(first_gameboard,))
-	start.start()
-	# t=0
-	# while True:
-	# 	mins, secs = divmod(t, 60)
-	# 	timer = '{:02d}:{:02d}'.format(mins, secs)
-	# 	print(timer, end="\r")
-	# 	time.sleep(1)
-	# 	t += 1
-	start.join()
+	tcp_socket.close()
+	# start.join()
