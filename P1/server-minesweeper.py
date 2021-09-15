@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 from os import system, name
-# import threading
+from threading import Thread,Event
 import random
+import signal
 import socket
+import ctypes
+import time
 import re
 
 HOST = "192.168.0.10"  # Direccion de la interfaz de loopback estándar (localhost)
@@ -44,7 +47,22 @@ def clear():
 		_ = system('cls')
 	else: # for mac and linux(here, os.name is 'posix')
 		_ = system('clear')
-
+class ClockThread(Thread):
+	def __init__(self, event, start_time):
+		Thread.__init__(self)
+		self.stopped = event
+		self.time = start_time
+		self.string = ""
+	def run(self):
+		while not self.stopped.wait(1):
+			mins, secs = divmod(self.time, 60)
+			self.string = '{:02d}:{:02d}'.format(mins, secs)
+			print(self.string, end="\r")
+			self.time += 1
+	def getTime(self):
+		return self.time
+	def getString(self):
+		return self.string
 class Cell:
 	def __init__(self, location, cell_type):
 		self.cell_type = cell_type
@@ -334,10 +352,12 @@ if __name__ == '__main__':
 	# Gameboard init
 	first_gameboard = GameBoard(levels.begginer)
 	first_gameboard.showGameBoard()
-	# conn.sendall(str.encode(first_gameboard.getGameBoard()))
 
-	win = False
-	while not win:	
+	stopFlag = Event()
+	clock = ClockThread(stopFlag, 0)
+	clock.start()
+
+	while True:	
 		data = conn.recv(buffer_size)
 		if not data:
 			break
@@ -352,12 +372,10 @@ if __name__ == '__main__':
 			elif s.groups()[0] == "h":
 				hit_a_mine = first_gameboard.hitCell(cy, cx)
 				if hit_a_mine:
-					you_lose = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
+					gameover_string = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
 					final = first_gameboard.getSolvedGameBoard()
 					first_gameboard.showGameBoard()
-					conn.sendall(str.encode(final + you_lose))
-					tcp_socket.close()
-					exit()
+					break
 			else:
 				print("Incorrect input format")
 				conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
@@ -374,11 +392,8 @@ if __name__ == '__main__':
 						coincidences = coincidences + 1
 				if len(first_gameboard.mine_locations) == coincidences:
 					win = True
-					you_win = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
-					final = first_gameboard.getSolvedGameBoard()
-					conn.sendall(str.encode(final + you_win))
-					tcp_socket.close()
-					exit()
+					gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
+					break
 		else:
 			if movement == "Gameboard request":
 				conn.sendall(str.encode(first_gameboard.getGameBoard()))
@@ -387,5 +402,9 @@ if __name__ == '__main__':
 			conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
 			data = None
 			action = cx = cy = None
+	final = first_gameboard.getSolvedGameBoard()
+	# this will stop the timer
+	stopFlag.set()
+	print(f" ======> Clock: {clock.string}")
+	conn.sendall(str.encode(final + gameover_string + f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}=> Time: {clock.string}{bcolors.ENDC}"))
 	tcp_socket.close()
-	# start.join()
