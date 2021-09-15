@@ -18,9 +18,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 	first_message = True
 	s.connect((HOST, PORT))
 	clear()
-	# data = s.recv(buffer_size)
-	# print(data.decode())
+	gameboard = ''
 	while True:
+		if "You lose!" in gameboard or "You Win!!!" in gameboard:
+			exit()
+			break
 		if first_message:
 			message = "Gameboard request"
 			first_message = False
@@ -28,5 +30,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 			message = input("Your movement: ")
 		s.sendall(str.encode(message))
 		data = s.recv(buffer_size)
-		print(data.decode())
+		gameboard = data.decode()
+		clear()
+		print(gameboard)
+	print(gameboard)
 

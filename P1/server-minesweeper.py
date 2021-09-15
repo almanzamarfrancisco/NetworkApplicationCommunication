@@ -17,7 +17,7 @@ class levels:
 	begginer = {
 		"base": 9,
 		"heigth": 9,
-		"mines": 10,
+		"mines": 2,
 	}
 	intermediate = {
 		"base": 16,
@@ -165,6 +165,22 @@ class GameBoard(PositiveList):
 				else:
 					print("■ ", end=" ")
 			print()
+	def getSolvedGameBoard(self):
+		string = "   "
+		for y in range(len(self[0])):
+			string += f"{bcolors.UNDERLINE}{bcolors.OKCYAN}{y:0=2d}{bcolors.ENDC} "
+		string += "\n"
+		for x in range(len(self)):
+			string += f"{bcolors.UNDERLINE}{bcolors.OKCYAN}{x:0=2d}{bcolors.ENDC} "
+			for y in range(len(self[0])):
+				if self[x][y].cell_type == "mine":
+					string += f"{bcolors.FAIL}x {bcolors.ENDC} "
+				elif self[x][y].cell_type == "flag":
+					string += f"{self[x][y].mine_counter}  "
+				else:
+					string += "■  "
+			string += "\n"
+		return string
 	def printGameBoard(self):
 		print("   ", end="")
 		for y in range(len(self[0])):
@@ -215,6 +231,7 @@ class GameBoard(PositiveList):
 		string += f"{bcolors.UNDERLINE}Flags left = {len(self.mine_locations) - len(self.flags)}{bcolors.ENDC}\n"
 		# Instructions
 		string += f"\n{bcolors.OKCYAN}{bcolors.UNDERLINE}Input format: 'h' for hit and 'f' for flag a cell and 'u' for unflag {bcolors.ENDC}\n"
+		string += f"{bcolors.OKCYAN}{bcolors.UNDERLINE}Example: h3, 2 {bcolors.ENDC}\n"
 		return string
 	def hitCell(self, x, y):
 		# print(f"hitCell ({x}, {y})")
@@ -286,9 +303,8 @@ class GameBoard(PositiveList):
 						# print(f"{bcolors.FAIL}[E] Out of range (7){bcolors.ENDC}")
 						pass
 		elif self[x][y].cell_type == "mine":
-			print(f"{bcolors.FAIL}You lose!{bcolors.ENDC}")
-			self.showGameBoard()
-			exit()
+			return True
+		return False
 	def flagCell(self, x, y):
 		print(f"flagCell ({x}, {y})")
 		self.flags.append({"x":x, "y":y})
@@ -334,15 +350,23 @@ if __name__ == '__main__':
 			elif s.groups()[0] == "u":
 				first_gameboard.unflagCell(cy,cx)
 			elif s.groups()[0] == "h":
-				first_gameboard.hitCell(cy, cx)
+				hit_a_mine = first_gameboard.hitCell(cy, cx)
+				if hit_a_mine:
+					you_lose = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
+					final = first_gameboard.getSolvedGameBoard()
+					first_gameboard.showGameBoard()
+					conn.sendall(str.encode(final + you_lose))
+					tcp_socket.close()
+					exit()
 			else:
 				print("Incorrect input format")
-				conn.sendall(str.encode("401 Incorrect format\n"))
+				conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
 			clear()
-			# first_gameboard.printGameBoard()
+			first_gameboard.printGameBoard()
+			first_gameboard.showGameBoard()
 			conn.sendall(str.encode(first_gameboard.getGameBoard()))
-			# print(f"Flags: {first_gameboard.flags}")
-			# print(f"Mines: {first_gameboard.mine_locations}")
+			print(f"Flags: {first_gameboard.flags}")
+			print(f"Mines: {first_gameboard.mine_locations}")
 			if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
 				coincidences = 0
 				for i in first_gameboard.flags:
@@ -350,14 +374,17 @@ if __name__ == '__main__':
 						coincidences = coincidences + 1
 				if len(first_gameboard.mine_locations) == coincidences:
 					win = True
-					print(f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}")
+					you_win = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
+					final = first_gameboard.getSolvedGameBoard()
+					conn.sendall(str.encode(final + you_win))
+					tcp_socket.close()
 					exit()
 		else:
 			if movement == "Gameboard request":
 				conn.sendall(str.encode(first_gameboard.getGameBoard()))
 				continue
 			print("Incorrect input format")
-			conn.sendall(str.encode("401 Incorrect format"))
+			conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
 			data = None
 			action = cx = cy = None
 	tcp_socket.close()
