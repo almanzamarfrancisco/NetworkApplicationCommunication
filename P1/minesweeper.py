@@ -271,11 +271,6 @@ class GameBoard(PositiveList):
 			print(e)
 			input()
 			pass
-def gameOver():
-	print(f"aaahhhh{game_over}")
-	if game_over:
-		return True
-	return False
 def startGame(gb):
 	win = False
 	while not win:	
