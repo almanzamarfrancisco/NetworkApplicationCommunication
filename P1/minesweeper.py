@@ -1,8 +1,7 @@
 from os import system, name
-# import threading
+import threading
 import random
 import time
-import sys
 import re
 
 class levels:
@@ -39,7 +38,6 @@ def clear():
 		_ = system('cls')
 	else: # for mac and linux(here, os.name is 'posix')
 		_ = system('clear')
-
 
 class Cell:
 	def __init__(self, location, cell_type):
@@ -273,20 +271,16 @@ class GameBoard(PositiveList):
 			print(e)
 			input()
 			pass
-def clock():
-	t=0
-	while True:
-		mins, secs = divmod(t, 60)
-		timer = '{:02d}:{:02d}'.format(mins, secs)
-		print(timer, end="\r")
-		time.sleep(1)
-		t += 1
+def gameOver():
+	print(f"aaahhhh{game_over}")
+	if game_over:
+		return True
+	return False
 def startGame(gb):
 	win = False
 	while not win:	
 		print(f"\n{bcolors.OKCYAN}{bcolors.UNDERLINE}Input format: 'h' for hit and 'f' for flag a cell and 'u' for unflag {bcolors.ENDC}")
-		print()
-		print()
+		print("\n")
 		s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", input())
 		if s is not None and len(s.groups()) == 3:
 			cx, cy = map(int, s.groups()[1:])
@@ -314,15 +308,19 @@ def startGame(gb):
 		else:
 			print("Incorrect input format")
 			action = cx = cy = None
+
 if __name__ == '__main__':
 	print(f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}")
 	first_gameboard = GameBoard(levels.begginer)
-	# first_gameboard.showGameBoard()
+	first_gameboard.showGameBoard()
 	first_gameboard.printGameBoard()
-	startGame(first_gameboard)
-	# start = threading.Thread(target=startGame, args=(first_gameboard,))
-	# time_elapsed = threading.Thread(target=clock)
-	# start.start()
-	# time_elapsed.start()
-	# time_elapsed.join()
-	# start.join()
+	start = threading.Thread(target=startGame, args=(first_gameboard,))
+	start.start()
+	t=0
+	# while True:
+	# 	mins, secs = divmod(t, 60)
+	# 	timer = '{:02d}:{:02d}'.format(mins, secs)
+	# 	print(timer, end="\r")
+	# 	time.sleep(1)
+	# 	t += 1
+	start.join()
