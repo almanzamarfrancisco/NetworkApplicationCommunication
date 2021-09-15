@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 from os import system, name
-import socket
 # import threading
 import random
+import socket
 import re
 
 HOST = "192.168.0.10"  # Direccion de la interfaz de loopback estándar (localhost)
 PORT = 6061  # Puerto que usa el cliente  (los puertos sin provilegios son > 1023)
-buffer_size = 1024
+buffer_size = 2048
 
 class levels:
 	# Begginer 9x9  => 10 mines
@@ -188,6 +188,34 @@ class GameBoard(PositiveList):
 		print(f"\nMine total = {len(self.mine_locations)}")
 		print(f"Cels flagged = {len(self.flags)}")
 		print(f"{bcolors.UNDERLINE}Flags left = {len(self.mine_locations) - len(self.flags)}{bcolors.ENDC}")
+	def getGameBoard(self):
+		string = f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}\n\n"#Title
+		string += "   "
+		for y in range(len(self[0])):
+			string += f"{bcolors.UNDERLINE}{bcolors.OKCYAN}{y:0=2d}{bcolors.ENDC} "
+		string += "\n"
+		for x in range(len(self)):
+			string += f"{bcolors.UNDERLINE}{bcolors.OKCYAN}{x:0=2d}{bcolors.ENDC} "
+			for y in range(len(self[0])):
+				if not self[x][y].hidden and not self[x][y].flagged:
+					if self[x][y].cell_type == "mine":
+						string += f"{bcolors.FAIL}x {bcolors.ENDC} "
+					elif self[x][y].cell_type == "flag":
+						string += f"{self[x][y].mine_counter}  "
+					else:
+						string += "■  "
+				elif self[x][y].flagged:
+					string += f"{bcolors.OKGREEN}x {bcolors.ENDC} "
+				else:
+					string += f"{bcolors.OKBLUE}■ {bcolors.ENDC} "
+			string += "\n"
+		# Information
+		string += f"\nMine total = {len(self.mine_locations)}\n"
+		string += f"Cels flagged = {len(self.flags)}\n"
+		string += f"{bcolors.UNDERLINE}Flags left = {len(self.mine_locations) - len(self.flags)}{bcolors.ENDC}\n"
+		# Instructions
+		string += f"\n{bcolors.OKCYAN}{bcolors.UNDERLINE}Input format: 'h' for hit and 'f' for flag a cell and 'u' for unflag {bcolors.ENDC}\n"
+		return string
 	def hitCell(self, x, y):
 		# print(f"hitCell ({x}, {y})")
 		flags = [False, False, False, False, False, False, False]
@@ -276,16 +304,9 @@ class GameBoard(PositiveList):
 						break
 		except ValueError as e:
 			print(e)
-			input()
 			pass
 
-if __name__ == '__main__':
-
-	print(f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}")#Title
-	# Gameboard init
-	first_gameboard = GameBoard(levels.begginer)
-	first_gameboard.showGameBoard()
-	first_gameboard.printGameBoard()
+if __name__ == '__main__':	
 	# Socket init
 	tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	tcp_socket.bind((HOST, PORT))
@@ -294,10 +315,13 @@ if __name__ == '__main__':
 	conn, addr = tcp_socket.accept()
 	print("Conectado a", addr)
 
+	# Gameboard init
+	first_gameboard = GameBoard(levels.begginer)
+	first_gameboard.showGameBoard()
+	# conn.sendall(str.encode(first_gameboard.getGameBoard()))
+
 	win = False
 	while not win:	
-		print(f"\n{bcolors.OKCYAN}{bcolors.UNDERLINE}Input format: 'h' for hit and 'f' for flag a cell and 'u' for unflag {bcolors.ENDC}")
-		print("\n")
 		data = conn.recv(buffer_size)
 		if not data:
 			break
@@ -307,18 +331,16 @@ if __name__ == '__main__':
 			cx, cy = map(int, s.groups()[1:])
 			if s.groups()[0] == "f":
 				first_gameboard.flagCell(cy,cx)
-				conn.sendall(str.encode("200 OK"))
 			elif s.groups()[0] == "u":
 				first_gameboard.unflagCell(cy,cx)
-				conn.sendall(str.encode("200 OK"))
 			elif s.groups()[0] == "h":
 				first_gameboard.hitCell(cy, cx)
-				conn.sendall(str.encode("200 OK"))
 			else:
 				print("Incorrect input format")
-				conn.sendall(str.encode("401 Incorrect format"))
+				conn.sendall(str.encode("401 Incorrect format\n"))
 			clear()
-			first_gameboard.printGameBoard()
+			# first_gameboard.printGameBoard()
+			conn.sendall(str.encode(first_gameboard.getGameBoard()))
 			# print(f"Flags: {first_gameboard.flags}")
 			# print(f"Mines: {first_gameboard.mine_locations}")
 			if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
@@ -331,10 +353,12 @@ if __name__ == '__main__':
 					print(f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}")
 					exit()
 		else:
+			if movement == "Gameboard request":
+				conn.sendall(str.encode(first_gameboard.getGameBoard()))
+				continue
 			print("Incorrect input format")
 			conn.sendall(str.encode("401 Incorrect format"))
 			data = None
 			action = cx = cy = None
-
 	tcp_socket.close()
 	# start.join()
