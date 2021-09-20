@@ -7,13 +7,12 @@ import signal
 import socket
 import ctypes
 import time
+import sys
 import re
 
-HOST = "192.168.0.10"  # Direccion de la interfaz de loopback estándar (localhost)
-PORT = 6061  # Puerto que usa el cliente  (los puertos sin provilegios son > 1023)
-buffer_size = 2048
+buffer_size = 8192
 
-class levels:
+class levels():
 	# Begginer 9x9  => 10 mines
 	# Intermediate 16x16 => 40 mines
 	# Expert 30x16 => 99 mines
@@ -22,15 +21,10 @@ class levels:
 		"heigth": 9,
 		"mines": 2,
 	}
-	intermediate = {
+	expert = {
 		"base": 16,
 		"heigth": 16,
 		"mines": 40,
-	}
-	expert = {
-		"base": 30,
-		"heigth": 16,
-		"mines": 99,
 	}
 class bcolors:
 	HEADER = '\033[95m'
@@ -341,16 +335,38 @@ class GameBoard(PositiveList):
 			pass
 
 if __name__ == '__main__':	
+	# HOST = "192.168.0.10"
+	# PORT = 6061
+	if len(sys.argv) >= 3:
+		HOST = sys.argv[1]
+		PORT = sys.argv[2]
+		if int(PORT) < 1023:
+			print("[E] Port must be reather than 2024")
+			exit()
+		PORT = int(PORT)
+	else:
+		print("[E] Program usage: python client-minesweeper.py [HOST] [PORT]")
+		exit()
+	gameover_string = ""
 	# Socket init
 	tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	tcp_socket.bind((HOST, PORT))
 	tcp_socket.listen()
+	print("[I] Listening... ")
 	# Connection accept
 	conn, addr = tcp_socket.accept()
 	print("Conectado a", addr)
-
+	#Select level
+	select_level = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
+	conn.sendall(str.encode(select_level))
+	data = conn.recv(buffer_size)
+	selected_number = int(data.decode()) - 1 
+	if selected_number == 0:
+		selected_level = levels.begginer
+	elif selected_number == 1:
+		selected_level = levels.expert
 	# Gameboard init
-	first_gameboard = GameBoard(levels.begginer)
+	first_gameboard = GameBoard(selected_level)
 	first_gameboard.showGameBoard()
 
 	stopFlag = Event()
