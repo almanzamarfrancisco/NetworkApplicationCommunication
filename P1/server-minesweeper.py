@@ -19,7 +19,7 @@ class levels():
 	begginer = {
 		"base": 9,
 		"heigth": 9,
-		"mines": 2,
+		"mines": 10,
 	}
 	expert = {
 		"base": 16,
