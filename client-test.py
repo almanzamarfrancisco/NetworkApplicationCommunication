@@ -9,7 +9,10 @@ buffer_size = 8192
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     print("Enviando mensaje...")
-    s.sendall(b"Hi! I am a client")
-    print("Waiting for answer...")
-    data = s.recv(buffer_size)
-    print("Recieved,", repr(data), " de", s.getpeername())
+    s.sendall(b"level")
+    sdata = ""
+    while not "END_GAME" in sdata:
+        print("Waiting for answer...")
+        data = s.recv(buffer_size)
+        sdata = data.decode()
+        print("Recieved,", sdata, " de", s.getpeername())
