@@ -9,6 +9,10 @@ import types
 sel = selectors.DefaultSelector()
 messages = [b"Mensaje 1 del cliente.", b"Mensaje 2 del cliente."]
 
+HOST = "192.168.0.13"
+PORT = 8080
+num_conns = 3
+
 def start_connections(host, port, num_conns):
 	server_addr = (host, port)
 	for i in range(0, num_conns):
@@ -48,12 +52,12 @@ def service_connection(key, mask):
 			sent = sock.send(data.outb)  # Should be ready to write
 			data.outb = data.outb[sent:]
 if __name__ == '__main__':
-	if len(sys.argv) != 4:
-		print("usage:", sys.argv[0], "<host> <port> <num_connections>")
-		sys.exit(1)
+	# if len(sys.argv) != 4:
+	# 	print("usage:", sys.argv[0], "<host> <port> <num_connections>")
+	# 	sys.exit(1)
 
-	host, port, num_conns = sys.argv[1:4]
-	start_connections(host, int(port), int(num_conns))
+	# host, port, num_conns = sys.argv[1:4]
+	start_connections(HOST, int(PORT), int(num_conns))
 
 	try:
 		while True:
