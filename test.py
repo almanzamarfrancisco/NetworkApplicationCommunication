@@ -47,7 +47,6 @@ def second_player(conn):
 	global second_player_connection
 	logging.debug(f"{bcolors.FAIL} Ready from second_player: {conn}{bcolors.ENDC}")
 	second_player_connection.wait()
-	logging.debug(f"{bcolors.FAIL}===> HERE I HAVE TO FOLLOW THE CONNECTION{bcolors.ENDC}")
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 def wait_for_event():
 	"""Wait for the event to be set before doing anything"""
@@ -59,24 +58,20 @@ def wait_for_event():
 	second_player_connected = second_player_connection.wait()
 	logging.debug(f"Second player connected")
 	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
-
-
-def wait_for_event_timeout(t):
-	global level, level_selection, second_player_ready
-	while not level_selection.isSet():
-		level_selected = level_selection.wait(t)
-		second_player_connected = second_player_ready.wait(t)
-		logging.debug(f"Event: {level_selected}, level: {level}, second_player_ready: {second_player_connected}")
-		if level_selected and level and second_player_connected:
-			logging.debug("==> Processing event")
-		else:
-			logging.debug("==> Doing other thing...")
-			if not second_player_connected:
-				logging.debug("==> Lets wait for second player...")
-			else:
-				logging.debug(f"{bcolors.OKGREEN}==> SECONDPLAYER READY...{bcolors.ENDC}")
-
-
+# def wait_for_event_timeout(t):
+# 	global level, level_selection, second_player_ready
+# 	while not level_selection.isSet():
+# 		level_selected = level_selection.wait(t)
+# 		second_player_connected = second_player_ready.wait(t)
+# 		logging.debug(f"Event: {level_selected}, level: {level}, second_player_ready: {second_player_connected}")
+# 		if level_selected and level and second_player_connected:
+# 			logging.debug("==> Processing event")
+# 		else:
+# 			logging.debug("==> Doing other thing...")
+# 			if not second_player_connected:
+# 				logging.debug("==> Lets wait for second player...")
+# 			else:
+# 				logging.debug(f"{bcolors.OKGREEN}==> SECONDPLAYER READY...{bcolors.ENDC}")
 def accept(sock_a, mask):
 	global first_player_connection, second_player_connection
 	conn, addr = sock_a.accept()  # Should be ready
@@ -99,9 +94,6 @@ def accept(sock_a, mask):
 		)
 		sp.start()
 		second_player_connection.set()
-	# sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
-	# sel.register(conn,selectors.EVENT_WRITE, read_write)
-
 def read_write(conn, mask):
 	global level, level_selection
 	if mask & selectors.EVENT_READ:
@@ -124,35 +116,38 @@ def read_write(conn, mask):
 		conn.sendall(str.encode("WAIT FOR ME"))  # Hope it won't block
 		# conn.sendall(str.encode("END_GAME"))  # Hope it won't block
 		logging.debug("Selector END_GAME")
-
-if __name__ == '__main__':
-	t1 = threading.Thread(
-			name="B",
-			target=wait_for_event,
-			# args=(,)
-		)
-	t1.start()
+def listen_connections():
 	with socket.socket() as sock_accept:
 		sock_accept.bind((HOST, PORT))
 		sock_accept.listen(100)
 		sock_accept.setblocking(False)
 		sel.register(sock_accept, selectors.EVENT_READ, accept)
 		while True:
-			# Wait for first_player
-			# start settings
-			# wai for other players
 			logging.debug("Listening connections...")
 			events = sel.select()
 			logging.debug(f"Events length: {len(events)}")
 			for key, mask in events:
 				callback = key.data
 				callback(key.fileobj, mask)
+if __name__ == '__main__':
+	t1 = threading.Thread(
+			name="B",
+			target=wait_for_event,
+			# args=(,)
+		)
+	lc = threading.Thread(
+			name="Main conn",
+			target=listen_connections
+		)
+	t1.start()
+	lc.start()
 	# t2 = threading.Thread(
 	# 		name="NB",
 	# 		target=wait_for_event_timeout,
 	# 		args=(1,)
 	# 	)
 	
-	# t1.join()
+	t1.join()
+	lc.join()
 	# fp.join()
 	# sp.start()
