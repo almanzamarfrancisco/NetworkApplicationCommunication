@@ -14,6 +14,9 @@ first_player_connection = threading.Event()
 second_player_connection = threading.Event()
 level_selection = threading.Event()
 turn = [threading.Event(), threading.Event()]
+messages = ["Message number 1", "Message number 1"]
+message_selector = 0
+gameover = threading.Event()
 level = False
 
 HOST = "192.168.0.13"
@@ -43,11 +46,39 @@ def first_player(conn):
 	first_player_connection.wait()
 	logging.debug(f"{bcolors.FAIL} Ready from first_player: {conn}{bcolors.ENDC}")
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
+	counter = 0
+	while True:
+		turn[0].wait()
+		logging.debug("=> FIRST player turn")
+		messages[0] = f"Getting: {counter}"
+		message_selector = 0
+		counter += 1
+		events = sel.select()
+		key, mask = events[0]
+		callback = key.data
+		callback(key.fileobj, mask)
+		turn[0].clear()
+		time.sleep(1)
+		turn[1].set()
 def second_player(conn):
 	global second_player_connection
 	logging.debug(f"{bcolors.FAIL} Ready from second_player: {conn}{bcolors.ENDC}")
 	second_player_connection.wait()
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
+	counter = 0
+	while True:
+		turn[1].wait()
+		logging.debug("=> SECOND player turn")
+		messages[1] = f"Getting: {counter}"
+		message_selector = 1
+		counter += 1
+		events = sel.select()
+		key, mask = events[1]
+		callback = key.data
+		callback(key.fileobj, mask)
+		turn[1].clear()
+		time.sleep(1)
+		turn[0].set()
 def wait_for_event():
 	"""Wait for the event to be set before doing anything"""
 	global first_player_connection, level_selection, second_player_connection
@@ -58,6 +89,7 @@ def wait_for_event():
 	second_player_connected = second_player_connection.wait()
 	logging.debug(f"Second player connected")
 	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
+	turn[0].set()
 # def wait_for_event_timeout(t):
 # 	global level, level_selection, second_player_ready
 # 	while not level_selection.isSet():
@@ -95,7 +127,7 @@ def accept(sock_a, mask):
 		sp.start()
 		second_player_connection.set()
 def read_write(conn, mask):
-	global level, level_selection
+	global level, level_selection, messages, message_selector
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size)  # Should be ready
 		if data:
@@ -105,30 +137,33 @@ def read_write(conn, mask):
 				level_selection.set()
 				level = True
 			logging.debug(f"Replying...")
-			conn.sendall(str.encode("Message"))  # Hope it won't block
+			conn.sendall(str.encode("Message"))
 		else:
 			logging.debug(f"Closing connection")
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug ("Sending data")
-		time.sleep(3)
-		conn.sendall(str.encode("WAIT FOR ME"))  # Hope it won't block
-		# conn.sendall(str.encode("END_GAME"))  # Hope it won't block
-		logging.debug("Selector END_GAME")
-def listen_connections():
-	with socket.socket() as sock_accept:
-		sock_accept.bind((HOST, PORT))
-		sock_accept.listen(100)
-		sock_accept.setblocking(False)
-		sel.register(sock_accept, selectors.EVENT_READ, accept)
-		while True:
-			logging.debug("Listening connections...")
-			events = sel.select()
-			logging.debug(f"Events length: {len(events)}")
-			for key, mask in events:
-				callback = key.data
-				callback(key.fileobj, mask)
+		logging.debug (f"Sending data {messages[message_selector]}")
+		conn.sendall(str.encode(messages[message_selector]))
+		# conn.sendall(str.encode("END_GAME"))
+		logging.debug("Data sent")
+def socket_manager():
+	global first_player_connection, second_player_connection, gameover
+	sock_accept = socket.socket()
+	sock_accept.bind((HOST, PORT))
+	sock_accept.listen(100)
+	sock_accept.setblocking(False)
+	sel.register(sock_accept, selectors.EVENT_READ, accept)
+	while not first_player_connection.isSet() or not second_player_connection.isSet():
+		logging.debug("Listening connections...")
+		events = sel.select()
+		logging.debug(f"Events length: {len(events)}")
+		for key, mask in events:
+			callback = key.data
+			callback(key.fileobj, mask)
+			# time.sleep(3)
+	gameover.wait()
+	sock_accept.close()
 if __name__ == '__main__':
 	t1 = threading.Thread(
 			name="B",
@@ -136,8 +171,8 @@ if __name__ == '__main__':
 			# args=(,)
 		)
 	lc = threading.Thread(
-			name="Main conn",
-			target=listen_connections
+			name="Socket Manager",
+			target=socket_manager
 		)
 	t1.start()
 	lc.start()
@@ -146,7 +181,6 @@ if __name__ == '__main__':
 	# 		target=wait_for_event_timeout,
 	# 		args=(1,)
 	# 	)
-	
 	t1.join()
 	lc.join()
 	# fp.join()
