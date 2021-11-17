@@ -79,7 +79,7 @@ def second_player(conn):
 		turn[1].clear()
 		time.sleep(1)
 		turn[0].set()
-def wait_for_event():
+def game_initializer():
 	"""Wait for the event to be set before doing anything"""
 	global first_player_connection, level_selection, second_player_connection
 	first_player_connected = first_player_connection.wait()
@@ -90,20 +90,6 @@ def wait_for_event():
 	logging.debug(f"Second player connected")
 	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
 	turn[0].set()
-# def wait_for_event_timeout(t):
-# 	global level, level_selection, second_player_ready
-# 	while not level_selection.isSet():
-# 		level_selected = level_selection.wait(t)
-# 		second_player_connected = second_player_ready.wait(t)
-# 		logging.debug(f"Event: {level_selected}, level: {level}, second_player_ready: {second_player_connected}")
-# 		if level_selected and level and second_player_connected:
-# 			logging.debug("==> Processing event")
-# 		else:
-# 			logging.debug("==> Doing other thing...")
-# 			if not second_player_connected:
-# 				logging.debug("==> Lets wait for second player...")
-# 			else:
-# 				logging.debug(f"{bcolors.OKGREEN}==> SECONDPLAYER READY...{bcolors.ENDC}")
 def accept(sock_a, mask):
 	global first_player_connection, second_player_connection
 	conn, addr = sock_a.accept()  # Should be ready
@@ -154,20 +140,18 @@ def socket_manager():
 	sock_accept.listen(100)
 	sock_accept.setblocking(False)
 	sel.register(sock_accept, selectors.EVENT_READ, accept)
+	logging.debug("Listening connections...")
 	while not first_player_connection.isSet() or not second_player_connection.isSet():
-		logging.debug("Listening connections...")
 		events = sel.select()
-		logging.debug(f"Events length: {len(events)}")
 		for key, mask in events:
-			callback = key.data
-			callback(key.fileobj, mask)
-			# time.sleep(3)
-	gameover.wait()
+			if mask & selectors.EVENT_READ
+				callback = key.data
+				callback(key.fileobj, mask)
 	sock_accept.close()
 if __name__ == '__main__':
 	t1 = threading.Thread(
 			name="B",
-			target=wait_for_event,
+			target=game_initializer,
 			# args=(,)
 		)
 	lc = threading.Thread(
@@ -176,12 +160,5 @@ if __name__ == '__main__':
 		)
 	t1.start()
 	lc.start()
-	# t2 = threading.Thread(
-	# 		name="NB",
-	# 		target=wait_for_event_timeout,
-	# 		args=(1,)
-	# 	)
 	t1.join()
 	lc.join()
-	# fp.join()
-	# sp.start()
