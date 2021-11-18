@@ -17,5 +17,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         data = s.recv(buffer_size)
         sdata = data.decode()
         print(f"Recieved: {bcolors.OKCYAN}{sdata}{bcolors.ENDC}")
-        # message = input("Type a message: ")
-        # s.sendall(str.encode(message))
+        message = input("Type a message: ")
+        s.sendall(str.encode(message))

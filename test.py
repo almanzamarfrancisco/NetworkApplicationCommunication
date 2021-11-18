@@ -14,10 +14,12 @@ first_player_connection = threading.Event()
 second_player_connection = threading.Event()
 level_selection = threading.Event()
 turn = [threading.Event(), threading.Event()]
+reply_from = [threading.Event(), threading.Event()]
 messages = ["Message number 1", "Message number 1"]
 port_numbers = []
 gameover = threading.Event()
 level = False
+second_player_ready = threading.Event()
 
 HOST = "192.168.0.13"
 PORT = 8080
@@ -51,43 +53,55 @@ def first_player(conn):
 	while True:
 		turn[0].wait()
 		logging.debug("=> FIRST player turn")
-		messages[0] = f"Getting: {counter}"
+		messages[0] = f"FIRST PLAYER, make a movement ({counter})"
 		counter += 1
 		events = sel.select()
 		key, mask = events[0]
 		callback = key.data
-		callback(key.fileobj, mask)
-		turn[0].clear()
 		time.sleep(1)
-		turn[1].set()
+		logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
+		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
+			turn[0].clear()
+			reply_from[0].clear()
+			turn[1].set()
+		callback(key.fileobj, mask)
 def second_player(conn):
 	global second_player_connection
 	logging.debug(f"{bcolors.FAIL} Ready from second_player: {conn}{bcolors.ENDC}")
-	second_player_connection.wait()
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 	port_numbers.append(conn.getpeername()[1])
+	second_player_connection.wait()
 	counter = 0
 	while True:
 		turn[1].wait()
 		logging.debug("=> SECOND player turn")
-		messages[1] = f"Getting: {counter}"
+		messages[1] = f"SECOND PLAYER, make a movement ({counter})"
 		counter += 1
 		events = sel.select()
 		key, mask = events[1]
 		callback = key.data
-		callback(key.fileobj, mask)
-		turn[1].clear()
 		time.sleep(1)
-		turn[0].set()
+		logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
+		if reply_from[1].isSet() and mask & selectors.EVENT_READ:
+			turn[1].clear()
+			reply_from[1].clear()
+			turn[0].set()
+		callback(key.fileobj, mask)
 def game_initializer():
 	"""Wait for the event to be set before doing anything"""
-	global first_player_connection, level_selection, second_player_connection
-	first_player_connected = first_player_connection.wait()
+	global first_player_connection, level_selection, second_player_connection, second_player_ready
+	first_player_connection.wait()
 	logging.debug(f"First player connected")
-	level_selected = level_selection.wait()
-	logging.debug(f"level_selected : {level_selected}")
-	second_player_connected = second_player_connection.wait()
+	level_selection.wait()
+	logging.debug(f"==> level_selected")
+	second_player_connection.wait()
 	logging.debug(f"Second player connected")
+	while not second_player_ready.isSet():
+		events = sel.select()
+		key, mask = events[1]
+		callback = key.data
+		callback(key.fileobj, mask)
+	logging.debug(f"Second player ready")
 	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
 	turn[0].set()
 def accept(sock_a, mask):
@@ -113,7 +127,7 @@ def accept(sock_a, mask):
 		sp.start()
 		second_player_connection.set()
 def read_write(conn, mask):
-	global level, level_selection, messages, port_numbers
+	global level, level_selection, messages, port_numbers, second_player_ready
 	player = port_numbers.index(conn.getpeername()[1])
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size)  # Should be ready
@@ -123,14 +137,21 @@ def read_write(conn, mask):
 			if "level" in sdata:
 				level_selection.set()
 				level = True
-			logging.debug(f"Replying...")
-			conn.sendall(str.encode("First message from server"))
+				logging.debug(f"Replying...")
+				conn.sendall(str.encode("First message from server for FIRST player"))
+			if "Im player two" in sdata:
+				logging.debug(f"Replying...")
+				conn.sendall(str.encode("First message from server for SECOND player"))
+				second_player_ready.set()
+			if level and second_player_ready.isSet():
+				logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}]{bcolors.ENDC}")
+				reply_from[player].set()
 		else:
 			logging.debug(f"Closing connection")
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug (f"Sending data to {player}: {messages[player]}")
+		logging.debug (f"Sending data to PLAYER {player + 1}: {messages[player]}")
 		conn.sendall(str.encode(messages[player]))
 		# conn.sendall(str.encode("END_GAME"))
 		logging.debug("Data sent")
@@ -151,7 +172,7 @@ def socket_manager():
 	sock_accept.close()
 if __name__ == '__main__':
 	t1 = threading.Thread(
-			name="B",
+			name="Game initializer",
 			target=game_initializer,
 			# args=(,)
 		)
