@@ -50,7 +50,7 @@ def first_player(conn):
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 	port_numbers.append(conn.getpeername()[1])
 	counter = 0
-	while True:
+	while not gameover.isSet():
 		turn[0].wait()
 		logging.debug("=> FIRST player turn")
 		messages[0] = f"FIRST PLAYER, make a movement ({counter})"
@@ -65,6 +65,12 @@ def first_player(conn):
 			reply_from[0].clear()
 			turn[1].set()
 		callback(key.fileobj, mask)
+	else:
+		messages[0] = f"END_GAME"
+		events = sel.select()
+		key, mask = events[0]
+		callback = key.data
+		callback(key.fileobj, mask)
 def second_player(conn):
 	global second_player_connection
 	logging.debug(f"{bcolors.FAIL} Ready from second_player: {conn}{bcolors.ENDC}")
@@ -72,7 +78,7 @@ def second_player(conn):
 	port_numbers.append(conn.getpeername()[1])
 	second_player_connection.wait()
 	counter = 0
-	while True:
+	while not gameover.isSet():
 		turn[1].wait()
 		logging.debug("=> SECOND player turn")
 		messages[1] = f"SECOND PLAYER, make a movement ({counter})"
@@ -86,6 +92,12 @@ def second_player(conn):
 			turn[1].clear()
 			reply_from[1].clear()
 			turn[0].set()
+		callback(key.fileobj, mask)
+	else:
+		messages[1] = f"END_GAME"
+		events = sel.select()
+		key, mask = events[1]
+		callback = key.data
 		callback(key.fileobj, mask)
 def game_initializer():
 	"""Wait for the event to be set before doing anything"""
@@ -143,6 +155,9 @@ def read_write(conn, mask):
 				logging.debug(f"Replying...")
 				conn.sendall(str.encode("First message from server for SECOND player"))
 				second_player_ready.set()
+			if "END_GAME" in sdata:
+				logging.debug(f"{bcolors.FAIL} GAME OVER {bcolors.ENDC}")
+				gameover.set()
 			if level and second_player_ready.isSet():
 				logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}]{bcolors.ENDC}")
 				reply_from[player].set()
@@ -174,7 +189,6 @@ if __name__ == '__main__':
 	t1 = threading.Thread(
 			name="Game initializer",
 			target=game_initializer,
-			# args=(,)
 		)
 	lc = threading.Thread(
 			name="Socket Manager",
