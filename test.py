@@ -55,16 +55,14 @@ def first_player(conn):
 	counter = 0
 	while not gameover.isSet():
 		time.sleep(1)
-		logging.debug(f"Waiting for turn {turns[0].isSet()}")
 		turns[0].wait()
 		logging.debug("=> FIRST player turn")
-		logging.debug("clear_turns(0)")
 		clear_turns(0)
 		events = sel.select()
 		key, mask = events[0]
 		callback = key.data
 		callback(key.fileobj, mask)
-		logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
+		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
 		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
 			messages[0] = f"FIRST PLAYER, make a movement ({counter})"
 			counter += 1
@@ -72,7 +70,7 @@ def first_player(conn):
 			reply_from[0].clear()
 			turns[1].set()
 		else:
-			logging.debug("continue...")
+			logging.debug("Update gameboard")
 			continue
 	else:
 		messages[0] = f"END_GAME"
@@ -89,16 +87,14 @@ def players_thread(conn, id):
 	counter = 0
 	while not gameover.isSet():
 		time.sleep(1)
-		logging.debug(f"Waiting for turn {turns[id].isSet()}")
 		turns[id].wait()
-		logging.debug(f"=> Player {id} turn gotten")
-		logging.debug(f"clear_turns({id})")
+		logging.debug(f"=> Player {id + 1} turn gotten")
 		clear_turns(id)
 		events = sel.select()
 		key, mask = events[id]
 		callback = key.data
 		callback(key.fileobj, mask)
-		logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
+		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
 		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
 			messages[id] = f"PLAYER {id}, make a movement ({counter})"
 			counter += 1
@@ -107,7 +103,7 @@ def players_thread(conn, id):
 			n = next_player(id)
 			turns[n].set()
 		else:
-			logging.debug("continue...")
+			logging.debug("Update gameboard")
 			continue
 	else:
 		messages[id] = f"END_GAME"
@@ -116,7 +112,7 @@ def players_thread(conn, id):
 		callback = key.data
 		callback(key.fileobj, mask)
 def next_player(id):
-	if id != CLIENTS:
+	if id >= CLIENTS - 1:
 		return 0
 	return id + 1
 def clear_turns(id):
@@ -181,9 +177,9 @@ def read_write(conn, mask):
 				level = True
 				logging.debug(f"Replying...")
 				conn.sendall(str.encode("First message from server for FIRST player"))
-			if f"Im player {player + 1}" in sdata:
+			if f"Im player" in sdata:
 				logging.debug(f"Replying...")
-				conn.sendall(str.encode(f"First message from server for player {player + 1}"))
+				conn.sendall(str.encode(f"Hi! You are player {player + 1}"))
 				players_ready[player].set()
 			if "END_GAME" in sdata:
 				logging.debug(f"{bcolors.FAIL} GAME OVER {bcolors.ENDC}")
@@ -204,7 +200,7 @@ def read_write(conn, mask):
 		logging.debug (f"Replying to PLAYER {player + 1}")
 		conn.sendall(str.encode(messages[player]))
 		# conn.sendall(str.encode("END_GAME"))
-		logging.debug("Data sent")
+		# logging.debug("Data sent")
 def socket_manager():
 	global first_player_connection, all_players_ready
 	sock_accept = socket.socket()
