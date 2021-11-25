@@ -10,7 +10,7 @@ buffer_size = 8192
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     print("Sending message...")
-    s.sendall(b"level")
+    s.sendall(b"level2")
     sdata = ""
     while not "END_GAME" in sdata:
         print("Waiting for answer...")

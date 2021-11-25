@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
 
-from threading import Thread,Event
 from os import system, name
+import threading
 import selectors
 import logging
 import random
-import socket
 import signal
+import socket
 import ctypes
-import types
 import time
 import sys
+import re
 
 buffer_size = 8192
 
 sel = selectors.DefaultSelector()
-first_connection = True
+first_player_connection = threading.Event()
+players_connection = []
+players_ready = []
+level_selection = threading.Event()
+turns = []
+reply_from = []
+messages = []
+port_numbers = []
+gameover = threading.Event()
+level = False
+all_players_ready = False
+selected_number = 0
 
 HOST = "192.168.0.13"
 PORT = 8080
+CLIENTS = 2
 
-class levels():
-	# Begginer 9x9  => 10 mines
-	# Intermediate 16x16 => 40 mines
-	# Expert 30x16 => 99 mines
-	begginer = {
-		"base": 9,
-		"heigth": 9,
-		"mines": 10,
-	}
-	expert = {
-		"base": 16,
-		"heigth": 16,
-		"mines": 40,
-	}
+def clear():
+	if name == 'nt': # for windows
+		_ = system('cls')
+	else: # for mac and linux(here, os.name is 'posix')
+		_ = system('clear')
 class bcolors:
 	HEADER = '\033[95m'
 	OKBLUE = '\033[94m'
@@ -44,16 +47,26 @@ class bcolors:
 	ENDC = '\033[0m'
 	BOLD = '\033[1m'
 	UNDERLINE = '\033[4m'
-def clear():
-	if name == 'nt': # for windows
-		_ = system('cls')
-	else: # for mac and linux(here, os.name is 'posix')
-		_ = system('clear')
+class levels():
+	# Begginer 9x9  => 10 mines
+	# Intermediate 16x16 => 40 mines
+	# Expert 30x16 => 99 mines
+	begginer = {
+		"base": 9,
+		"heigth": 9,
+		"mines": 10,
+		"slug": "begginer"
+	}
+	expert = {
+		"base": 16,
+		"heigth": 16,
+		"mines": 40,
+		"slug": "expert"
+	}
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
 
-
-class ClockThread(Thread):
+class ClockThread(threading.Thread):
 	def __init__(self, event, start_time):
 		Thread.__init__(self)
 		self.stopped = event
@@ -346,57 +359,276 @@ class GameBoard(PositiveList):
 			print(e)
 			pass
 
-def accept(sock_a, mask):
-	global first_connection
-	sock_conn, addr = sock_a.accept()  # Should be ready
-	logging.debug(f'aceptado sock_conn, de {addr}')
-	sock_conn.setblocking(False)
-	if first_connection:
-		first_connection = False
-		logging.debug(f"{bcolors.FAIL}Here we have to do the selection{bcolors.ENDC}")
-	time.sleep(3)
-	sel.register(sock_conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
-	#sel.register(sock_conn,selectors.EVENT_WRITE, read_write)
-
-def read_write(sock_c, mask):
-	if mask & selectors.EVENT_READ:
-		data = sock_c.recv(1024)  # Should be ready
-		if data:
-			logging.debug(f'recibido{repr(data)} a {sock_c}')
-			logging.debug(f'respondiendo {repr(data)}, a {sock_c}')
-			# sock_c.sendall(str.encode("Alllllvvvvvvvv"))  # Hope it won't block
+def first_player(conn):
+	global first_player_connection, port_numbers
+	port_numbers.append(conn.getpeername()[1])
+	first_player_connection.wait()
+	players_ready[0].set()
+	logging.debug(f"{bcolors.OKBLUE}First player ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
+	counter = 0
+	while not gameover.isSet():
+		time.sleep(1)
+		turns[0].wait()
+		logging.debug("=> FIRST player turn")
+		clear_turns(0)
+		events = sel.select()
+		key, mask = events[0]
+		callback = key.data
+		callback(key.fileobj, mask)
+		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
+		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
+			messages[0] = f"FIRST PLAYER, make a movement ({counter})"
+			counter += 1
+			turns[0].clear()
+			reply_from[0].clear()
+			turns[1].set()
 		else:
-			logging.debug('cerrando {sock_c}')
-			sel.unregister(sock_c)
-			sock_c.close()
+			logging.debug("Update gameboard")
+			continue
+	else:
+		messages[0] = f"END_GAME"
+		events = sel.select()
+		key, mask = events[0]
+		callback = key.data
+		callback(key.fileobj, mask)
+def players_thread(conn, id):
+	global players_connection
+	port_numbers.append(conn.getpeername()[1])
+	logging.debug(f"{bcolors.OKBLUE}Player {id} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
+	players_ready[id].wait()
+	counter = 0
+	while not gameover.isSet():
+		time.sleep(1)
+		turns[id].wait()
+		logging.debug(f"=> Player {id + 1} turn gotten")
+		clear_turns(id)
+		events = sel.select()
+		key, mask = events[id]
+		callback = key.data
+		callback(key.fileobj, mask)
+		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
+		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
+			messages[id] = f"PLAYER {id}, make a movement ({counter})"
+			counter += 1
+			turns[id].clear()
+			reply_from[id].clear()
+			n = next_player(id)
+			turns[n].set()
+		else:
+			logging.debug("Update gameboard")
+			continue
+	else:
+		messages[id] = f"END_GAME"
+		events = sel.select()
+		key, mask = events[id]
+		callback = key.data
+		callback(key.fileobj, mask)
+def next_player(id):
+	if id >= CLIENTS - 1:
+		return 0
+	return id + 1
+def clear_turns(id):
+	for i, turn in enumerate(turns):
+		if i == id:
+			continue
+		turn.clear()
+def players_connection_ready():
+	global players_connection
+	for pc in players_connection:
+		if not pc.isSet():
+			return False
+	return True
+def game_initializer():
+	global first_player_connection, level_selection, players_connection, players_ready
+	first_player_connection.wait()
+	logging.debug(f"First player connected")
+	level_selection.wait()
+	#Select level
+	# select_level = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
+	# conn.sendall(str.encode(select_level))
+	# data = conn.recv(buffer_size)
+	logging.debug(f"==> Level selected")
+	for i, pr in enumerate(players_ready):
+		pr.wait()
+		logging.debug(f"Player {i + 1} ready!")
+	logging.debug(f"All players ready!")
+	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
+	turns[0].set()
+def accept(sock_a, mask):
+	global first_player_connection, players_connection, players_ready
+	conn, addr = sock_a.accept()  # Should be ready
+	logging.debug(f"Connected to {addr}")
+	conn.setblocking(False)
+	if not first_player_connection.isSet():
+		fp = threading.Thread(
+			name="first_player",
+			target=first_player,
+			args=(conn,)
+		)
+		fp.start()
+		first_player_connection.set()
+		return
+	if first_player_connection.isSet() and not players_connection_ready():
+		logging.debug(f"Waiting for other players")
+		for i, pc in enumerate(players_connection):
+			if not pc.isSet():
+				pt = threading.Thread(
+					name=f"Player {i + 2}",
+					target=players_thread,
+					args=(conn,i + 1)
+				)
+				pt.start()
+				pc.set()
+				return
+def read_write(conn, mask):
+	global level, level_selection, messages, port_numbers, players_ready, all_players_ready, selected_number
+	player = port_numbers.index(conn.getpeername()[1])
+	if mask & selectors.EVENT_READ:
+		data = conn.recv(buffer_size)  # Should be ready
+		if data:
+			sdata = data.decode()
+			logging.debug(f"{bcolors.OKGREEN}Recieved from player {player + 1}: {sdata} {bcolors.ENDC}")
+			if "level" in sdata:
+				level = True
+				m = re.search("\d", sdata)
+				selected_number = int(m.group()) - 1 
+				logging.debug(f"Replying...")
+				conn.sendall(str.encode("First message from server for FIRST player"))
+				level_selection.set()
+			if f"Im player" in sdata:
+				logging.debug(f"Replying...")
+				conn.sendall(str.encode(f"Hi! You are player {player + 1}"))
+				players_ready[player].set()
+			if "END_GAME" in sdata:
+				logging.debug(f"{bcolors.FAIL} GAME OVER {bcolors.ENDC}")
+				gameover.set()
+			for index, pr in enumerate(players_ready):
+				if pr.isSet():
+					all_players_ready = True
+				else:
+					all_players_ready = False
+			if level and all_players_ready:
+				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
+				reply_from[player].set()
+		else:
+			logging.debug(f"Closing connection")
+			sel.unregister(conn)
+			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug ("enviando datos")
-		sock_c.sendall(str.encode("SELECTOR EVENT_WRITE"))  # Hope it won't block
-		logging.debug("Selector EVENT_WRITE")
-		time.sleep(3)
-
-if __name__ == '__main__':
-	# if len(sys.argv) >= 3:
-	# 	HOST = sys.argv[1]
-	# 	PORT = sys.argv[2]
-	# 	CLIENTS = 3#sys.argv[3]
-	# 	if int(PORT) < 1023:
-	# 		print("[E] Port must be reather than 2024")
-	# 		exit()
-	# 	PORT = int(PORT)
-	# else:
-	# 	print("[E] Program usage: python client-minesweeper.py [HOST] [PORT]")
-	# 	exit()
-	gameover_string = ""
-	with socket.socket() as sock_accept:
-		sock_accept.bind((HOST, PORT))
-		sock_accept.listen(100)
-		sock_accept.setblocking(False)
-		sel.register(sock_accept, selectors.EVENT_READ, accept)
-		while True:
-			logging.debug("Waiting for event...")
-			events = sel.select()
-			logging.debug(len(events))
-			for key, mask in events:
+		logging.debug (f"Replying to PLAYER {player + 1}")
+		conn.sendall(str.encode(messages[player]))
+		# conn.sendall(str.encode("END_GAME"))
+		# logging.debug("Data sent")
+def socket_manager():
+	global first_player_connection, all_players_ready
+	sock_accept = socket.socket()
+	sock_accept.bind((HOST, PORT))
+	sock_accept.listen(10)
+	sock_accept.setblocking(False)
+	sel.register(sock_accept, selectors.EVENT_READ, accept)
+	logging.debug(f"Socket bound {HOST}:{PORT}")
+	logging.debug("Listening connections...")
+	while not all_players_ready:
+		events = sel.select()
+		for key, mask in events:
+			if mask & selectors.EVENT_READ:
 				callback = key.data
 				callback(key.fileobj, mask)
+	logging.debug(f"{bcolors.OKBLUE}Exiting from socket manager{bcolors.ENDC}")
+	for i, rp in enumerate(reply_from):
+		rp.clear()
+	sock_accept.close()
+
+if __name__ == '__main__':
+	if len(sys.argv) >= 2:
+		CLIENTS = int(sys.argv[1])
+	else:
+		print("[E] Program usage: python server-minesweeper.py <CLIENTS>")
+		exit()
+	for c in range(CLIENTS):
+		messages.append("Message number 1")
+		reply_from.append(threading.Event())
+		turns.append(threading.Event())
+		players_connection.append(threading.Event())
+		players_ready.append(threading.Event())
+	players_connection.pop()
+
+	gameover_string = ""
+
+	gi = threading.Thread(
+			name="Game initializer",
+			target=game_initializer,
+		)
+	sm = threading.Thread(
+			name="Socket Manager",
+			target=socket_manager
+		)
+	gi.start()
+	sm.start()
+
+	# Gameboard init
+	level_selection.wait()
+	selected_level = levels.begginer
+	if selected_number == 1:
+		selected_level = levels.expert
+	logging.debug(f"Level selected: {bcolors.OKGREEN}{bcolors.BOLD}{selected_level['slug']}{bcolors.ENDC}")
+	first_gameboard = GameBoard(selected_level)
+	first_gameboard.showGameBoard()
+	# stopFlag = Event()
+	# clock = ClockThread(stopFlag, 0)
+	# clock.start()
+
+	# while True:	
+	# 	data = conn.recv(buffer_size)
+	# 	if not data:
+	# 		break
+	# 	movement = data.decode("utf-8")
+	# 	s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", movement)
+	# 	if s is not None and len(s.groups()) == 3:
+	# 		cx, cy = map(int, s.groups()[1:])
+	# 		if s.groups()[0] == "f":
+	# 			first_gameboard.flagCell(cy,cx)
+	# 		elif s.groups()[0] == "u":
+	# 			first_gameboard.unflagCell(cy,cx)
+	# 		elif s.groups()[0] == "h":
+	# 			hit_a_mine = first_gameboard.hitCell(cy, cx)
+	# 			if hit_a_mine:
+	# 				gameover_string = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
+	# 				final = first_gameboard.getSolvedGameBoard()
+	# 				first_gameboard.showGameBoard()
+	# 				break
+	# 		else:
+	# 			print("Incorrect input format")
+	# 			conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
+	# 		clear()
+	# 		first_gameboard.printGameBoard()
+	# 		first_gameboard.showGameBoard()
+	# 		conn.sendall(str.encode(first_gameboard.getGameBoard()))
+	# 		print(f"Flags: {first_gameboard.flags}")
+	# 		print(f"Mines: {first_gameboard.mine_locations}")
+	# 		if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
+	# 			coincidences = 0
+	# 			for i in first_gameboard.flags:
+	# 				if i in first_gameboard.mine_locations:
+	# 					coincidences = coincidences + 1
+	# 			if len(first_gameboard.mine_locations) == coincidences:
+	# 				win = True
+	# 				gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
+	# 				break
+	# 	else:
+	# 		if movement == "Gameboard request":
+	# 			conn.sendall(str.encode(first_gameboard.getGameBoard()))
+	# 			continue
+	# 		print("Incorrect input format")
+	# 		conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
+	# 		data = None
+	# 		action = cx = cy = None
+	# final = first_gameboard.getSolvedGameBoard()
+	# # this will stop the timer
+	# stopFlag.set()
+	# print(f" ======> Clock: {clock.string}")
+	# conn.sendall(str.encode(final + gameover_string + f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}=> Time: {clock.string}{bcolors.ENDC}"))
+	gi.join()
+	sm.join()

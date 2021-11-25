@@ -3,7 +3,6 @@ import threading
 import selectors
 import logging
 import socket
-import types
 import time
 import sys
 
