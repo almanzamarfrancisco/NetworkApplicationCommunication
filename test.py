@@ -190,7 +190,7 @@ def read_write(conn, mask):
 				else:
 					all_players_ready = False
 			if level and all_players_ready:
-				logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
+				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
 				reply_from[player].set()
 		else:
 			logging.debug(f"Closing connection")
