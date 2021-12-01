@@ -48,6 +48,8 @@ def printer(sock_a):
 				logging.debug("Setting turn")
 				turn_gotten.set()
 				gameboard = ""
+		elif "GAME TERMINATED" in gameboard:
+			exit()
 		if not turn_gotten.isSet():
 			gameboard = receive(sock_a)
 			logging.debug(f"Gameboard: {gameboard}")

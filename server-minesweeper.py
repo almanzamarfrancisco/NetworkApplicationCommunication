@@ -15,18 +15,23 @@ import re
 buffer_size = 8192
 
 sel = selectors.DefaultSelector()
+
 first_player_connection = threading.Event()
+level_selection = threading.Event()
+gameover = threading.Event()
+
 players_connection = []
 players_ready = []
-level_selection = threading.Event()
-turns = []
+port_numbers = []
 reply_from = []
 messages = []
-port_numbers = []
-gameover = threading.Event()
-level = False
+turns = []
+
 all_players_ready = False
+level = False
+
 selected_number = 0
+
 first_gameboard = ""
 gameover_string = ""
 
@@ -34,11 +39,13 @@ HOST = "192.168.0.13"
 PORT = 8080
 CLIENTS = 2
 
+# Clear screen
 def clear():
 	if name == 'nt': # for windows
 		_ = system('cls')
 	else: # for mac and linux(here, os.name is 'posix')
 		_ = system('clear')
+# Console colors
 class bcolors:
 	HEADER = '\033[95m'
 	OKBLUE = '\033[94m'
@@ -49,6 +56,7 @@ class bcolors:
 	ENDC = '\033[0m'
 	BOLD = '\033[1m'
 	UNDERLINE = '\033[4m'
+# Game levels
 class levels():
 	# Begginer 9x9  => 10 mines
 	# Intermediate 16x16 => 40 mines
@@ -69,10 +77,10 @@ class levels():
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
 
 class ClockThread(threading.Thread):
-	def __init__(self, event, start_time):
-		Thread.__init__(self)
-		self.stopped = event
-		self.time = start_time
+	def __init__(self):
+		threading.Thread.__init__(self)
+		self.stopped = threading.Event()
+		self.time = 0
 		self.string = ""
 	def run(self):
 		while not self.stopped.wait(1):
@@ -84,6 +92,9 @@ class ClockThread(threading.Thread):
 		return self.time
 	def getString(self):
 		return self.string
+	def stop(self):
+		self.stopped.set()
+		return self.time
 class Cell:
 	def __init__(self, location, cell_type):
 		self.cell_type = cell_type
@@ -189,6 +200,8 @@ class GameBoard(PositiveList):
 				pass
 		print(f"Set mine Total: {len(mine_locations)}")
 		self.mine_locations = mine_locations
+		self.first_movement = False
+		self.clock = ClockThread()
 	def showGameBoard(self):
 		print("   ", end="")
 		for y in range(len(self[0])):
@@ -277,6 +290,9 @@ class GameBoard(PositiveList):
 		flags = [False, False, False, False, False, False, False]
 		self[x][y].setVisible()
 		print(f"{bcolors.UNDERLINE}{bcolors.OKCYAN}MinesWeeper{bcolors.ENDC}")
+		if not self.first_movement:
+			self.startClock()
+			self.first_movement = True
 		if self[x][y].cell_type == "empty":
 			for j in range(y+1): # Case above and behind
 				for i in range(x+1):
@@ -346,6 +362,9 @@ class GameBoard(PositiveList):
 		return False
 	def flagCell(self, x, y):
 		print(f"flagCell ({x}, {y})")
+		if not self.first_movement:
+			self.startClock()
+			self.first_movement = True
 		self.flags.append({"x":x, "y":y})
 		self[x][y].flagged = True
 	def unflagCell(self, x, y):
@@ -360,6 +379,12 @@ class GameBoard(PositiveList):
 		except ValueError as e:
 			print(e)
 			pass
+	def startClock(self):
+		self.clock.start()
+	def stopClock(self):
+		a = self.clock.stop()
+		self.clock.join()
+		return a
 
 def first_player(conn):
 	global first_player_connection, port_numbers
@@ -381,7 +406,6 @@ def first_player(conn):
 		key, mask = events[0]
 		callback = key.data
 		callback(key.fileobj, mask)
-		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
 		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
 			# messages[0] = f"{first_gameboard.getGameBoard()} Your turn"
 			messages[0] = f"Update gameboard"
@@ -394,6 +418,7 @@ def first_player(conn):
 			# messages[0] = first_gameboard.getGameBoard()
 			messages[0] = f"Your turn {counter}"
 	else:
+		logging.debug(f"GAME ENDED GS: {gameover_string}")
 		conn.sendall(str.encode(gameover_string))
 def players_thread(conn, id):
 	global players_connection
@@ -413,7 +438,6 @@ def players_thread(conn, id):
 		key, mask = events[id]
 		callback = key.data
 		callback(key.fileobj, mask)
-		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
 		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
 			# messages[id + 1] = f"{first_gameboard.getGameBoard()} Your turn"
 			messages[id] = f"Update gameboard"
@@ -427,6 +451,7 @@ def players_thread(conn, id):
 			# messages[id + 1] = f"{first_gameboard.getGameBoard()} Your turn"
 			messages[id] = f"Your turn {counter}"
 	else:
+		logging.debug(f"GAME ENDED GS: {gameover_string}")
 		conn.sendall(str.encode(gameover_string))
 def next_player(id):
 	if id >= CLIENTS - 1:
@@ -519,7 +544,7 @@ def read_write(conn, mask):
 					elif s.groups()[0] == "h":
 						hit_a_mine = first_gameboard.hitCell(cy, cx)
 						if hit_a_mine:
-							gameover_string = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
+							gameover_string = f"\n{bcolors.FAIL}You lose!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
 							final = first_gameboard.getSolvedGameBoard()
 							first_gameboard.showGameBoard()
 							gameover.set()
@@ -539,12 +564,16 @@ def read_write(conn, mask):
 								coincidences = coincidences + 1
 						if len(first_gameboard.mine_locations) == coincidences:
 							win = True
-							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
+							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
 							gameover.set()
+				elif "END_GAME" in sdata:
+					gameover_string = f"\n{bcolors.FAIL}{bcolors.BOLD}GAME TERMINATED\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
+					final = first_gameboard.getSolvedGameBoard()
+					first_gameboard.showGameBoard()
+					gameover.set()
 				else:
 					logging.debug("Incorrect input format")
 					cx = cy = None
-				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
 				reply_from[player].set()
 		else:
 			logging.debug(f"Closing connection")
@@ -552,9 +581,11 @@ def read_write(conn, mask):
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
 		logging.debug (f"Replying to PLAYER {player + 1}")
-		conn.sendall(str.encode(messages[player]))
-		# conn.sendall(str.encode("END_GAME"))
-		# logging.debug("Data sent")
+		if gameover.isSet():
+			logging.debug (f"gameover_string: {gameover_string}")
+			conn.sendall(str.encode(gameover_string))
+		else:
+			conn.sendall(str.encode(messages[player]))
 def socket_manager():
 	global first_player_connection, all_players_ready
 	sock_accept = socket.socket()
@@ -610,59 +641,5 @@ if __name__ == '__main__':
 	logging.debug(f"Level selected: {bcolors.OKGREEN}{bcolors.BOLD}{selected_level['slug']}{bcolors.ENDC}")
 	first_gameboard = GameBoard(selected_level)
 	first_gameboard.showGameBoard()
-	# stopFlag = Event()
-	# clock = ClockThread(stopFlag, 0)
-	# clock.start()
-
-	# while True:	
-	# 	data = conn.recv(buffer_size)
-	# 	if not data:
-	# 		break
-	# 	movement = data.decode("utf-8")
-	# 	s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", movement)
-	# 	if s is not None and len(s.groups()) == 3:
-	# 		cx, cy = map(int, s.groups()[1:])
-	# 		if s.groups()[0] == "f":
-	# 			first_gameboard.flagCell(cy,cx)
-	# 		elif s.groups()[0] == "u":
-	# 			first_gameboard.unflagCell(cy,cx)
-	# 		elif s.groups()[0] == "h":
-	# 			hit_a_mine = first_gameboard.hitCell(cy, cx)
-	# 			if hit_a_mine:
-	# 				gameover_string = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
-	# 				final = first_gameboard.getSolvedGameBoard()
-	# 				first_gameboard.showGameBoard()
-	# 				break
-	# 		else:
-	# 			print("Incorrect input format")
-	# 			conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
-	# 		clear()
-	# 		first_gameboard.printGameBoard()
-	# 		first_gameboard.showGameBoard()
-	# 		conn.sendall(str.encode(first_gameboard.getGameBoard()))
-	# 		print(f"Flags: {first_gameboard.flags}")
-	# 		print(f"Mines: {first_gameboard.mine_locations}")
-	# 		if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
-	# 			coincidences = 0
-	# 			for i in first_gameboard.flags:
-	# 				if i in first_gameboard.mine_locations:
-	# 					coincidences = coincidences + 1
-	# 			if len(first_gameboard.mine_locations) == coincidences:
-	# 				win = True
-	# 				gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
-	# 				break
-	# 	else:
-	# 		if movement == "Gameboard request":
-	# 			conn.sendall(str.encode(first_gameboard.getGameBoard()))
-	# 			continue
-	# 		print("Incorrect input format")
-	# 		conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
-	# 		data = None
-	# 		action = cx = cy = None
-	# final = first_gameboard.getSolvedGameBoard()
-	# # this will stop the timer
-	# stopFlag.set()
-	# print(f" ======> Clock: {clock.string}")
-	# conn.sendall(str.encode(final + gameover_string + f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}=> Time: {clock.string}{bcolors.ENDC}"))
 	gi.join()
 	sm.join()
