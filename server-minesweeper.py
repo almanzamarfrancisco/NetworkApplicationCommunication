@@ -27,6 +27,8 @@ gameover = threading.Event()
 level = False
 all_players_ready = False
 selected_number = 0
+first_gameboard = ""
+gameover_string = ""
 
 HOST = "192.168.0.13"
 PORT = 8080
@@ -54,7 +56,7 @@ class levels():
 	begginer = {
 		"base": 9,
 		"heigth": 9,
-		"mines": 10,
+		"mines": 1,
 		"slug": "begginer"
 	}
 	expert = {
@@ -365,6 +367,9 @@ def first_player(conn):
 	first_player_connection.wait()
 	players_ready[0].set()
 	logging.debug(f"{bcolors.OKBLUE}First player ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+	#Select level
+	select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player 1\n Please select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
+	conn.sendall(str.encode(select_level))
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 	counter = 0
 	while not gameover.isSet():
@@ -378,24 +383,24 @@ def first_player(conn):
 		callback(key.fileobj, mask)
 		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[0] IS {reply_from[0].isSet()}{bcolors.ENDC}")
 		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
-			messages[0] = f"FIRST PLAYER, make a movement ({counter})"
-			counter += 1
+			# messages[0] = f"{first_gameboard.getGameBoard()} Your turn"
+			messages[0] = f"Update gameboard"
 			turns[0].clear()
 			reply_from[0].clear()
+			counter += 1
 			turns[1].set()
 		else:
-			logging.debug("Update gameboard")
-			continue
+			logging.debug("Send your turn")
+			# messages[0] = first_gameboard.getGameBoard()
+			messages[0] = f"Your turn {counter}"
 	else:
-		messages[0] = f"END_GAME"
-		events = sel.select()
-		key, mask = events[0]
-		callback = key.data
-		callback(key.fileobj, mask)
+		conn.sendall(str.encode(gameover_string))
 def players_thread(conn, id):
 	global players_connection
 	port_numbers.append(conn.getpeername()[1])
-	logging.debug(f"{bcolors.OKBLUE}Player {id} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+	logging.debug(f"{bcolors.OKBLUE}Player {id + 1} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+	select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player {id + 1}\n{bcolors.ENDC}"
+	conn.sendall(str.encode(select_level))
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 	players_ready[id].wait()
 	counter = 0
@@ -410,21 +415,19 @@ def players_thread(conn, id):
 		callback(key.fileobj, mask)
 		# logging.debug(f"{bcolors.WARNING}HERE READ IS {mask & selectors.EVENT_READ} AND reply_from[1] IS {reply_from[1].isSet()}{bcolors.ENDC}")
 		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
-			messages[id] = f"PLAYER {id}, make a movement ({counter})"
-			counter += 1
+			# messages[id + 1] = f"{first_gameboard.getGameBoard()} Your turn"
+			messages[id] = f"Update gameboard"
 			turns[id].clear()
 			reply_from[id].clear()
+			counter += 1
 			n = next_player(id)
 			turns[n].set()
 		else:
-			logging.debug("Update gameboard")
-			continue
+			logging.debug("Send your turn")
+			# messages[id + 1] = f"{first_gameboard.getGameBoard()} Your turn"
+			messages[id] = f"Your turn {counter}"
 	else:
-		messages[id] = f"END_GAME"
-		events = sel.select()
-		key, mask = events[id]
-		callback = key.data
-		callback(key.fileobj, mask)
+		conn.sendall(str.encode(gameover_string))
 def next_player(id):
 	if id >= CLIENTS - 1:
 		return 0
@@ -445,10 +448,6 @@ def game_initializer():
 	first_player_connection.wait()
 	logging.debug(f"First player connected")
 	level_selection.wait()
-	#Select level
-	# select_level = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
-	# conn.sendall(str.encode(select_level))
-	# data = conn.recv(buffer_size)
 	logging.debug(f"==> Level selected")
 	for i, pr in enumerate(players_ready):
 		pr.wait()
@@ -483,12 +482,12 @@ def accept(sock_a, mask):
 				pc.set()
 				return
 def read_write(conn, mask):
-	global level, level_selection, messages, port_numbers, players_ready, all_players_ready, selected_number
+	global level, level_selection, messages, port_numbers, players_ready, all_players_ready, selected_number, gameover_string
 	player = port_numbers.index(conn.getpeername()[1])
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size)  # Should be ready
 		if data:
-			sdata = data.decode()
+			sdata = data.decode("utf-8")
 			logging.debug(f"{bcolors.OKGREEN}Recieved from player {player + 1}: {sdata} {bcolors.ENDC}")
 			if "level" in sdata:
 				level = True
@@ -497,7 +496,7 @@ def read_write(conn, mask):
 				logging.debug(f"Replying...")
 				conn.sendall(str.encode("First message from server for FIRST player"))
 				level_selection.set()
-			if f"Im player" in sdata:
+			if f"I'm a player" in sdata:
 				logging.debug(f"Replying...")
 				conn.sendall(str.encode(f"Hi! You are player {player + 1}"))
 				players_ready[player].set()
@@ -510,6 +509,41 @@ def read_write(conn, mask):
 				else:
 					all_players_ready = False
 			if level and all_players_ready:
+				s  = re.match(r"(h|f|u) ?(\d+), ?(\d+)", sdata)
+				if s is not None and len(s.groups()) == 3:
+					cx, cy = map(int, s.groups()[1:])
+					if s.groups()[0] == "f":
+						first_gameboard.flagCell(cy,cx)
+					elif s.groups()[0] == "u":
+						first_gameboard.unflagCell(cy,cx)
+					elif s.groups()[0] == "h":
+						hit_a_mine = first_gameboard.hitCell(cy, cx)
+						if hit_a_mine:
+							gameover_string = f"\n{bcolors.FAIL}You lose!{bcolors.ENDC}\n"
+							final = first_gameboard.getSolvedGameBoard()
+							first_gameboard.showGameBoard()
+							gameover.set()
+					else:
+						logging.debug("Incorrect input format")
+						# conn.sendall(str.encode(first_gameboard.getGameBoard()+"\n401 Incorrect format\n"))
+					# clear()
+					first_gameboard.printGameBoard()
+					first_gameboard.showGameBoard()
+					# conn.sendall(str.encode(first_gameboard.getGameBoard()))
+					print(f"Flags: {first_gameboard.flags}")
+					print(f"Mines: {first_gameboard.mine_locations}")
+					if len(first_gameboard.flags) == len(first_gameboard.mine_locations):
+						coincidences = 0
+						for i in first_gameboard.flags:
+							if i in first_gameboard.mine_locations:
+								coincidences = coincidences + 1
+						if len(first_gameboard.mine_locations) == coincidences:
+							win = True
+							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!{bcolors.ENDC}\n"
+							gameover.set()
+				else:
+					logging.debug("Incorrect input format")
+					cx = cy = None
 				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
 				reply_from[player].set()
 		else:
