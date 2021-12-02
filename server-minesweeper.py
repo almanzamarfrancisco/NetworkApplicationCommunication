@@ -385,49 +385,22 @@ class GameBoard(PositiveList):
 		a = self.clock.stop()
 		self.clock.join()
 		return a
-
-def first_player(conn):
-	global first_player_connection, port_numbers
-	port_numbers.append(conn.getpeername()[1])
-	first_player_connection.wait()
-	players_ready[0].set()
-	logging.debug(f"{bcolors.OKBLUE}First player ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
-	#Select level
-	select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player 1\n Please select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
-	conn.sendall(str.encode(select_level))
-	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
-	counter = 0
-	while not gameover.isSet():
-		time.sleep(1)
-		turns[0].wait()
-		logging.debug("=> FIRST player turn")
-		clear_turns(0)
-		events = sel.select()
-		key, mask = events[0]
-		callback = key.data
-		callback(key.fileobj, mask)
-		if reply_from[0].isSet() and mask & selectors.EVENT_READ:
-			# messages[0] = f"{first_gameboard.getGameBoard()} Your turn"
-			messages[0] = f"Update gameboard"
-			turns[0].clear()
-			reply_from[0].clear()
-			counter += 1
-			turns[1].set()
-		else:
-			logging.debug("Send your turn")
-			# messages[0] = first_gameboard.getGameBoard()
-			messages[0] = f"Your turn {counter}"
-	else:
-		logging.debug(f"GAME ENDED GS: {gameover_string}")
-		conn.sendall(str.encode(gameover_string))
 def players_thread(conn, id):
-	global players_connection
+	global players_connection, first_player_connection, port_numbers
 	port_numbers.append(conn.getpeername()[1])
-	logging.debug(f"{bcolors.OKBLUE}Player {id + 1} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
-	select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player {id + 1}\n{bcolors.ENDC}"
-	conn.sendall(str.encode(select_level))
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
-	players_ready[id].wait()
+	if id == 0:
+		first_player_connection.wait()
+		players_ready[0].set()
+		logging.debug(f"{bcolors.OKBLUE}First player ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+		#Select level
+		select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player 1\n Please select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
+		conn.sendall(str.encode(select_level))
+	else:
+		logging.debug(f"{bcolors.OKBLUE}Player {id + 1} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+		ac = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player {id + 1}\n{bcolors.ENDC}"
+		conn.sendall(str.encode(ac))
+		players_ready[id].wait()
 	counter = 0
 	while not gameover.isSet():
 		time.sleep(1)
@@ -488,8 +461,8 @@ def accept(sock_a, mask):
 	if not first_player_connection.isSet():
 		fp = threading.Thread(
 			name="first_player",
-			target=first_player,
-			args=(conn,)
+			target=players_thread,
+			args=(conn,0)
 		)
 		fp.start()
 		first_player_connection.set()
