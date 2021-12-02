@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-
 
 def receive(sock_a):
 	data = sock_a.recv(buffer_size)
-	return data.decode("utf-8")
+	return data.decode()
 def printer(sock_a):
 	global gameboard
 	logging.debug(f"Printer initialized")
@@ -45,14 +45,15 @@ def printer(sock_a):
 		elif f"Your turn {counter}" in gameboard:
 			# gameboard.replace("Your turn {counter}", "")
 			if not turn_gotten.isSet():
-				logging.debug("Setting turn")
 				turn_gotten.set()
 				gameboard = ""
 		elif "GAME TERMINATED" in gameboard:
 			exit()
 		if not turn_gotten.isSet():
 			gameboard = receive(sock_a)
-			logging.debug(f"Gameboard: {gameboard}")
+			# logging.debug(f"Gameboard: {gameboard}")
+			clear()
+			print(gameboard)
 		time.sleep(1)
 
 def make_movement(sock_a):
@@ -60,7 +61,6 @@ def make_movement(sock_a):
 	while True:
 		logging.debug(f"Waiting for turn")
 		turn_gotten.wait()
-		logging.debug(f"=> Turn gotten")
 		logging.debug("Your movement: ")
 		message = input()
 		sock_a.sendall(str.encode(message))

@@ -405,7 +405,7 @@ def players_thread(conn, id):
 	while not gameover.isSet():
 		time.sleep(1)
 		turns[id].wait()
-		logging.debug(f"=> Player {id + 1} turn gotten")
+		logging.debug(f"Player {id + 1} turn")
 		clear_turns(id)
 		events = sel.select()
 		key, mask = events[id]
@@ -420,9 +420,7 @@ def players_thread(conn, id):
 			n = next_player(id)
 			turns[n].set()
 		else:
-			logging.debug("Send your turn")
-			# messages[id + 1] = f"{first_gameboard.getGameBoard()} Your turn"
-			messages[id] = f"Your turn {counter}"
+			messages[id] = f"{first_gameboard.getGameBoard()} Your turn {counter}"
 	else:
 		logging.debug(f"GAME ENDED GS: {gameover_string}")
 		conn.sendall(str.encode(gameover_string))
@@ -517,7 +515,7 @@ def read_write(conn, mask):
 					elif s.groups()[0] == "h":
 						hit_a_mine = first_gameboard.hitCell(cy, cx)
 						if hit_a_mine:
-							gameover_string = f"\n{bcolors.FAIL}You lose!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
+							gameover_string = f"\n{bcolors.FAIL}{first_gameboard.getSolvedGameBoard()}\nYou lose!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
 							final = first_gameboard.getSolvedGameBoard()
 							first_gameboard.showGameBoard()
 							gameover.set()
@@ -537,7 +535,7 @@ def read_write(conn, mask):
 								coincidences = coincidences + 1
 						if len(first_gameboard.mine_locations) == coincidences:
 							win = True
-							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}You Win!!!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
+							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}{first_gameboard.getSolvedGameBoard()}\nYou Win!!!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
 							gameover.set()
 				elif "END_GAME" in sdata:
 					gameover_string = f"\n{bcolors.FAIL}{bcolors.BOLD}GAME TERMINATED\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
@@ -553,7 +551,7 @@ def read_write(conn, mask):
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug (f"Replying to PLAYER {player + 1}")
+		# logging.debug (f"Replying to PLAYER {player + 1}")
 		if gameover.isSet():
 			logging.debug (f"gameover_string: {gameover_string}")
 			conn.sendall(str.encode(gameover_string))
@@ -586,7 +584,7 @@ if __name__ == '__main__':
 		print("[E] Program usage: python server-minesweeper.py <CLIENTS>")
 		exit()
 	for c in range(CLIENTS):
-		messages.append("Message number 1")
+		messages.append("\t")
 		reply_from.append(threading.Event())
 		turns.append(threading.Event())
 		players_connection.append(threading.Event())
