@@ -535,7 +535,7 @@ def read_write(conn, mask):
 								coincidences = coincidences + 1
 						if len(first_gameboard.mine_locations) == coincidences:
 							win = True
-							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}{first_gameboard.getSolvedGameBoard()}\nYou Win!!!\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"
+							gameover_string = f"\n{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.HEADER}{first_gameboard.getSolvedGameBoard()}\nYou Win!!!\n Time: {first_gameboard.stopClock()} seconds{bcolors.ENDC}\n"
 							gameover.set()
 				elif "END_GAME" in sdata:
 					gameover_string = f"\n{bcolors.FAIL}{bcolors.BOLD}GAME TERMINATED\n Time:{first_gameboard.stopClock()}{bcolors.ENDC}\n"

@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-
 
 def receive(sock_a):
 	data = sock_a.recv(buffer_size)
-	return data.decode()
+	return str(data, errors='ignore')
 def printer(sock_a):
 	global gameboard
 	logging.debug(f"Printer initialized")
@@ -43,7 +43,7 @@ def printer(sock_a):
 		if "You lose!" in gameboard or "You Win!!!" in gameboard:
 			exit()
 		elif f"Your turn {counter}" in gameboard:
-			# gameboard.replace("Your turn {counter}", "")
+			gameboard.replace("Your turn {counter}", "")
 			if not turn_gotten.isSet():
 				turn_gotten.set()
 				gameboard = ""
