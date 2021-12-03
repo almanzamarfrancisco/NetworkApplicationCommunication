@@ -84,13 +84,13 @@ if __name__ == '__main__':
 		# clear()
 		data = s.recv(buffer_size)
 		sdata = data.decode("utf-8")
-		if "Hi! You are player 1" in sdata:
+		if "Hi! You are client 1" in sdata:
 			logging.debug(sdata)
-			level = input()
-			first_message = f"level{level}"
+			# level = input()
+			first_message = f"level"
 		else:
 			logging.debug(sdata)
-			first_message = f"I'm a player"
+			first_message = f"I'm a client"
 		s.sendall(str.encode(first_message))
 		data = s.recv(buffer_size)
 		sdata = data.decode('utf-8')

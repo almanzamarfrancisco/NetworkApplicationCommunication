@@ -10,19 +10,19 @@ buffer_size = 8192
 
 sel = selectors.DefaultSelector()
 
-first_player_connection = threading.Event()
+first_client_connection = threading.Event()
 level_selection = threading.Event()
-gameover = threading.Event()
+end_connection = threading.Event()
 
-players_connection = []
-players_ready = []
+clients_connection = []
+clients_ready = []
 port_numbers = []
 reply_from = []
 messages = []
 turns = []
 
 level = False
-all_players_ready = False
+all_clients_ready = False
 
 HOST = "192.168.0.13"
 PORT = 8080
@@ -47,27 +47,27 @@ class bcolors:
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
 
-def players_thread(conn, id):
-	global players_connection, first_player_connection, port_numbers
+def clients_thread(conn, id):
+	global clients_connection, first_client_connection, port_numbers
 	port_numbers.append(conn.getpeername()[1])
 	sel.register(conn, selectors.EVENT_READ | selectors.EVENT_WRITE, read_write)
 	if id == 0:
-		first_player_connection.wait()
-		players_ready[0].set()
-		logging.debug(f"{bcolors.OKBLUE}First player ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+		first_client_connection.wait()
+		clients_ready[0].set()
+		logging.debug(f"{bcolors.OKBLUE}First client ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
 		#Select level
-		select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player 1\n Please select level: \n1: Begginer\n2: Expert\n{bcolors.ENDC}"
+		select_level = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are client 1{bcolors.ENDC}"
 		conn.sendall(str.encode(select_level))
 	else:
-		logging.debug(f"{bcolors.OKBLUE}Player {id + 1} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
-		ac = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are player {id + 1}\n{bcolors.ENDC}"
+		logging.debug(f"{bcolors.OKBLUE}Client {id + 1} ready in port: {conn.getpeername()[1]}{bcolors.ENDC}")
+		ac = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are client {id + 1}\n{bcolors.ENDC}"
 		conn.sendall(str.encode(ac))
-		players_ready[id].wait()
+		clients_ready[id].wait()
 	counter = 0
-	while not gameover.isSet():
+	while not end_connection.isSet():
 		time.sleep(0.2)
 		turns[id].wait()
-		logging.debug(f"Player {id + 1} turn")
+		logging.debug(f"Client {id + 1} turn")
 		clear_turns(id)
 		events = sel.select()
 		key, mask = events[id]
@@ -79,14 +79,14 @@ def players_thread(conn, id):
 			turns[id].clear()
 			reply_from[id].clear()
 			counter += 1
-			n = next_player(id)
+			n = next_client(id)
 			turns[n].set()
 		else:
 			messages[id] = f"Your turn {counter}"
 	else:
-		logging.debug(f"GAME ENDED GS: {gameover_string}")
-		conn.sendall(str.encode(gameover_string))
-def next_player(id):
+		logging.debug(f"GAME ENDED GS: {end_connection_string}")
+		conn.sendall(str.encode(end_connection_string))
+def next_client(id):
 	if id >= CLIENTS - 1:
 		return 0
 	return id + 1
@@ -95,89 +95,89 @@ def clear_turns(id):
 		if i == id:
 			continue
 		turn.clear()
-def players_connection_ready():
-	global players_connection
-	for pc in players_connection:
+def clients_connection_ready():
+	global clients_connection
+	for pc in clients_connection:
 		if not pc.isSet():
 			return False
 	return True
 def game_initializer():
-	global first_player_connection, level_selection, players_connection, players_ready
-	first_player_connection.wait()
-	logging.debug(f"First player connected")
+	global first_client_connection, level_selection, clients_connection, clients_ready
+	first_client_connection.wait()
+	logging.debug(f"First client connected")
 	level_selection.wait()
 	logging.debug(f"==> Level selected")
-	for i, pr in enumerate(players_ready):
+	for i, pr in enumerate(clients_ready):
 		pr.wait()
-		logging.debug(f"Player {i + 1} ready!")
-	logging.debug(f"All players ready!")
+		logging.debug(f"Client {i + 1} ready!")
+	logging.debug(f"All clients ready!")
 	logging.debug(f"{bcolors.OKBLUE}We can start to play now!{bcolors.ENDC}")
 	turns[0].set()
 def accept(sock_a, mask):
-	global first_player_connection, players_connection, players_ready
+	global first_client_connection, clients_connection, clients_ready
 	conn, addr = sock_a.accept()  # Should be ready
 	logging.debug(f"Connected to {addr}")
 	conn.setblocking(False)
-	if not first_player_connection.isSet():
+	if not first_client_connection.isSet():
 		fp = threading.Thread(
-			name="first_player",
-			target=players_thread,
+			name="First client",
+			target=clients_thread,
 			args=(conn,0)
 		)
 		fp.start()
-		first_player_connection.set()
+		first_client_connection.set()
 		return
-	if first_player_connection.isSet() and not players_connection_ready():
-		logging.debug(f"Waiting for other players")
-		for i, pc in enumerate(players_connection):
+	if first_client_connection.isSet() and not clients_connection_ready():
+		logging.debug(f"Waiting for other clients")
+		for i, pc in enumerate(clients_connection):
 			if not pc.isSet():
 				pt = threading.Thread(
-					name=f"Player {i + 2}",
-					target=players_thread,
+					name=f"Client {i + 2}",
+					target=clients_thread,
 					args=(conn,i + 1)
 				)
 				pt.start()
 				pc.set()
 				return
 def read_write(conn, mask):
-	global level, level_selection, messages, port_numbers, players_ready, all_players_ready
-	player = port_numbers.index(conn.getpeername()[1])
+	global level, level_selection, messages, port_numbers, clients_ready, all_clients_ready
+	client = port_numbers.index(conn.getpeername()[1])
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size)  # Should be ready
 		if data:
 			sdata = data.decode()
-			logging.debug(f"{bcolors.OKGREEN}Recieved from player {player + 1}: {sdata} {bcolors.ENDC}")
+			logging.debug(f"{bcolors.OKGREEN}Recieved from client {client + 1}: {sdata} {bcolors.ENDC}")
 			if "level" in sdata:
 				level_selection.set()
 				level = True
 				logging.debug(f"Replying...")
-				conn.sendall(str.encode("First message from server for FIRST player"))
-			if f"I'm a player" in sdata:
+				conn.sendall(str.encode("First message from server for FIRST client"))
+			if f"I'm a client" in sdata:
 				logging.debug(f"Replying...")
-				conn.sendall(str.encode(f"Hi! You are player {player + 1}"))
-				players_ready[player].set()
+				conn.sendall(str.encode(f"Hi! You are client {client + 1}"))
+				clients_ready[client].set()
 			if "END_GAME" in sdata:
 				logging.debug(f"{bcolors.FAIL} GAME OVER {bcolors.ENDC}")
-				gameover.set()
-			for index, pr in enumerate(players_ready):
+				end_connection.set()
+			for index, pr in enumerate(clients_ready):
 				if pr.isSet():
-					all_players_ready = True
+					all_clients_ready = True
 				else:
-					all_players_ready = False
-			if level and all_players_ready:
-				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{player}].set(){bcolors.ENDC}")
-				reply_from[player].set()
+					all_clients_ready = False
+			if level and all_clients_ready:
+				# logging.debug(f"{bcolors.WARNING}Executing reply_from[{client}].set(){bcolors.ENDC}")
+				reply_from[client].set()
 		else:
 			logging.debug(f"Closing connection")
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug (f"Replying to PLAYER {player + 1}")
-		conn.sendall(str.encode(messages[player]))
+		logging.debug (f"Replying to CLIENT {client + 1}")
+		conn.sendall(str.encode(messages[client]))
 		# conn.sendall(str.encode("END_GAME"))
 		# logging.debug("Data sent")
 def socket_manager():
-	global first_player_connection, all_players_ready
+	global first_client_connection, all_clients_ready
 	sock_accept = socket.socket()
 	sock_accept.bind((HOST, PORT))
 	sock_accept.listen(10)
@@ -185,7 +185,7 @@ def socket_manager():
 	sel.register(sock_accept, selectors.EVENT_READ, accept)
 	logging.debug(f"Socket bound {HOST}:{PORT}")
 	logging.debug("Listening connections...")
-	while not all_players_ready:
+	while not all_clients_ready:
 		events = sel.select()
 		for key, mask in events:
 			if mask & selectors.EVENT_READ:
@@ -205,18 +205,18 @@ if __name__ == '__main__':
 		messages.append("Message number 1")
 		reply_from.append(threading.Event())
 		turns.append(threading.Event())
-		players_connection.append(threading.Event())
-		players_ready.append(threading.Event())
-	players_connection.pop()
-	gi = threading.Thread(
-			name="Game initializer",
+		clients_connection.append(threading.Event())
+		clients_ready.append(threading.Event())
+	clients_connection.pop()
+	init = threading.Thread(
+			name="Initializer",
 			target=game_initializer,
 		)
 	sm = threading.Thread(
 			name="Socket Manager",
 			target=socket_manager
 		)
-	gi.start()
+	init.start()
 	sm.start()
-	gi.join()
+	init.join()
 	sm.join()
