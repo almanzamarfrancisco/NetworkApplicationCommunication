@@ -101,7 +101,7 @@ def clients_connection_ready():
 		if not pc.isSet():
 			return False
 	return True
-def game_initializer():
+def initializer():
 	global first_client_connection, level_selection, clients_connection, clients_ready
 	first_client_connection.wait()
 	logging.debug(f"First client connected")
@@ -209,8 +209,8 @@ if __name__ == '__main__':
 		clients_ready.append(threading.Event())
 	clients_connection.pop()
 	init = threading.Thread(
-			name="Initializer",
-			target=game_initializer,
+			name="initializer",
+			target=initializer,
 		)
 	sm = threading.Thread(
 			name="Socket Manager",
