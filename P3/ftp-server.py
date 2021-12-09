@@ -2,6 +2,7 @@ from os import system, name
 import threading
 import selectors
 import database
+import sqlite3
 import logging
 import socket
 import time
@@ -18,6 +19,7 @@ clients_ready = []
 port_numbers = []
 reply_from = []
 messages = []
+users = []
 
 all_clients_ready = False
 
@@ -61,9 +63,10 @@ def clients_thread(conn, id):
 		callback(key.fileobj, mask)
 		# logging.debug(f"{bcolors.WARNING}Client {id + 1} CONDITION {reply_from[id].isSet()} && {mask & selectors.EVENT_READ}{bcolors.ENDC}")
 		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
-			messages[id] = f"Update..."
 			reply_from[id].clear()
 			counter += 1
+			if counter == 1:
+				messages[id] = f"Authenticate your self. Type your user"
 			n = next_client(id)
 		else:
 			messages[id] = f"Your turn {counter}"
@@ -74,6 +77,15 @@ def next_client(id):
 	if id >= CLIENTS - 1:
 		return 0
 	return id + 1
+def codes(x):
+	return {
+		"220": "220 Service ready",
+		"330": "330 User response",
+		"331": "331 User name ok, need password",
+		"332": "331 Password sent",
+		"230": "230 User logged in",
+		"149": "149 initializing testing",
+	}.get(x, 500)
 def accept(sock_a, mask):
 	global clients_connection, clients_ready, CLIENTS
 	conn, addr = sock_a.accept()
@@ -97,7 +109,7 @@ def accept(sock_a, mask):
 			cc.set()
 			return
 def read_write(conn, mask):
-	global messages, port_numbers, clients_ready, all_clients_ready
+	global users, messages, port_numbers, clients_ready, all_clients_ready
 	client = port_numbers.index(conn.getpeername()[1])
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size) 
@@ -108,6 +120,37 @@ def read_write(conn, mask):
 				logging.debug(f"Replying...")
 				conn.sendall(str.encode(f"Hi! You are client {client + 1}"))
 				clients_ready[client].set()
+			elif codes("330") in sdata:
+				user = sdata.replace(f"{codes('330')} ", "")
+				con = sqlite3.connect('example.db')
+				cur = con.cursor()
+				query = cur.execute("SELECT * FROM users WHERE name=?", (user,)).fetchall()
+				if not query:
+					logging.debug(f"{bcolors.FAIL}[E] Error to find user{bcolors.ENDC}")
+					exit()
+				logging.debug(f"{bcolors.OKGREEN}User found: {query[0][0]}{bcolors.ENDC}")
+				users[client] = query[0][0]
+				con.commit()
+				con.close()
+				messages[client] = codes("331")
+			elif codes("332") in sdata:
+				password = sdata.replace(f"{codes('332')} ", "")
+				con = sqlite3.connect('example.db')
+				cur = con.cursor()
+				query = cur.execute("SELECT * FROM users WHERE name=?", (users[client],)).fetchall()
+				if not query:
+					logging.debug(f"{bcolors.FAIL}[E] Error to find user for logging in password{bcolors.ENDC}")
+					exit()
+				if not query[0][1] in password:
+					logging.debug(f"{bcolors.FAIL}[E] Incorrect password{bcolors.ENDC}")
+					exit()
+				logging.debug(f"{bcolors.OKGREEN}[I] User logged succesful{bcolors.ENDC}")
+				con.commit()
+				con.close()
+				messages[client] = codes("230")
+			elif codes("149") in sdata:
+				# messages[client] = codes("149")
+				logging.debug(f"Must init testing")
 			if "END_CONNECTION" in sdata:
 				logging.debug(f"{bcolors.FAIL} END CONNECTION {bcolors.ENDC}")
 				end_connection.set()
@@ -122,7 +165,7 @@ def read_write(conn, mask):
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		logging.debug(f"Replying to CLIENT {client + 1}")
+		# logging.debug(f"Replying to CLIENT {client + 1}")
 		conn.sendall(str.encode(messages[client]))
 def connections_manager():
 	global all_clients_ready, CLIENTS
@@ -142,10 +185,16 @@ def connections_manager():
 	logging.debug(f"{bcolors.OKBLUE}Exiting from socket manager{bcolors.ENDC}")
 	sock_accept.close()
 if __name__ == '__main__':
-	messages.append("Message number 1")
+	# if len(sys.argv) >= 2:
+	# 	PORT = int(sys.argv[1])
+	# else:
+	# 	print("[E] Program usage: python ftp-server.py <PORT>")
+	# 	exit()
+	users.append("")
+	messages.append("220 Service ready")
 	reply_from.append(threading.Event())
-	clients_connection.append(threading.Event())
 	clients_ready.append(threading.Event())
+	clients_connection.append(threading.Event())
 	sm = threading.Thread(
 			name="Connections Manager",
 			target=connections_manager
