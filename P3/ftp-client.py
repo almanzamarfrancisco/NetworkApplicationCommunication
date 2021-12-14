@@ -75,8 +75,34 @@ def printer(sock_a):
 			message = ""
 		elif codes("002") in stuff:
 			logging.debug(f"Get file command... {stuff}")
+			for i in range(3):
+				logging.debug(f"Waiting {3 - i}... ")
+				time.sleep(1)
+			split = re.split("get", stuff)
+			book = split[1].replace(" ", "")
+			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+				logging.debug("Establishing connection...")
+				s.connect((HOST, 8081))
+				s.sendall(b"Ready to recieve data")
+				logging.debug("Waiting for response...")
+				stream = s.recv(buffer_size)
+				recieved_string = stream.decode("utf-8")
+				q = recieved_string.split("lines_total: ")
+				lines_total = int(q[1])
+				with open(f"./recieved_books/{book}", "w") as file:
+					i = 0
+					while True:
+						stream = s.recv(buffer_size)
+						recieved_string = stream.decode("utf-8")
+						if "BOOK_TRANSMITION_ENDED" in recieved_string:
+							logging.debug("Book transmition ended")
+							logging.debug("Waiting for more commands")
+							break
+						percentage = "{:.0f}".format(i*100/lines_total)
+						print(f"Progress: {percentage}%")
+						file.write(recieved_string)
+						i += 1
 			message = ""
-			
 		elif "END_CONNECTION" in stuff:
 			exit()
 		if not turn_gotten.isSet():

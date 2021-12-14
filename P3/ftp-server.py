@@ -28,6 +28,8 @@ HOST = "192.168.0.13"
 PORT = 8080
 CLIENTS = 1
 
+book = ""
+
 def clear():
 	if name == 'nt': # for windows
 		_ = system('cls')
@@ -110,8 +112,36 @@ def accept(sock_a, mask):
 			ct.start()
 			cc.set()
 			return
+def get_command():
+	global book
+	lines_total = 0
+	with open(f"./books/{book}", "r") as file:
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as data_connection:
+			data_connection.bind((HOST, 8081))
+			logging.debug(f"Waiting for client connection... ")
+			data_connection.listen()
+			data_conn, data_addr = data_connection.accept()
+			with data_conn:
+				logging.debug(f"Waiting for client to be ready... ")
+				data = data_conn.recv(buffer_size)
+				if "Ready to recieve data" in data.decode("utf-8"):
+					logging.debug(f"Client ready")
+				for line in file.readlines():
+					lines_total += 1
+				data_conn.sendall(str.encode(f"lines_total: {lines_total}"))
+				i = 0
+				file.seek(0, 0)
+				for line in file.readlines():
+					percentage = "{:.0f}".format(i*100/lines_total)
+					print(f"Progress: {percentage}%")
+					data_conn.sendall(str.encode(line))
+					i += 1
+					time.sleep(0.1)
+				data_conn.sendall(str.encode("BOOK_TRANSMITION_ENDED"))
+				logging.debug("End book transmition...")
+				logging.debug("Waiting for commands...")
 def read_write(conn, mask):
-	global users, messages, port_numbers, clients_ready, all_clients_ready
+	global users, messages, port_numbers, clients_ready, all_clients_ready, book
 	client = port_numbers.index(conn.getpeername()[1])
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size) 
@@ -158,10 +188,17 @@ def read_write(conn, mask):
 				book = split[1].replace(" ", "")
 				logging.debug(f"Command get file")
 				messages[client] = f"{codes('002')} {book}"
-				
-			if "END_CONNECTION" in sdata:
+				gc = threading.Thread(
+						name="Get command",
+						target=get_command
+					)
+				gc.start()
+			elif "END_CONNECTION" in sdata:
 				logging.debug(f"{bcolors.FAIL} END CONNECTION {bcolors.ENDC}")
 				end_connection.set()
+			else:
+				logging.debug(f"Command not found")
+				messages[client] = f"Command not found"
 			for cr in clients_ready:
 				if cr.isSet():
 					all_clients_ready = True
