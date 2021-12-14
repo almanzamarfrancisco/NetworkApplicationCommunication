@@ -39,9 +39,10 @@ def codes(x):
 		"220": "220 Service ready",
 		"330": "330 User response",
 		"331": "331 User name ok, need password",
-		"332": "331 Password sent",
+		"332": "332 Password sent",
 		"230": "230 User logged in",
-		"149": "149 initializing testing",
+		"001": "ls",
+		"002": "get",
 	}.get(x, 500)
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
@@ -67,8 +68,15 @@ def printer(sock_a):
 			logging.debug(f"[I] {codes('331')}")
 			message = codes("332")
 		elif codes("230") in stuff:
-			logging.debug(f"[I] {codes('230')}")
-			message = codes("149")
+			logging.debug(f"[I] {codes('230')} \n[I] Type a command")
+			message = ""
+		elif codes("001") in stuff:
+			logging.debug(f"List directory command: {stuff}")
+			message = ""
+		elif codes("002") in stuff:
+			logging.debug(f"Get file command... {stuff}")
+			message = ""
+			
 		elif "END_CONNECTION" in stuff:
 			exit()
 		if not turn_gotten.isSet():

@@ -1,4 +1,4 @@
-from os import system, name
+from os import system, name, popen
 import threading
 import selectors
 import database
@@ -7,6 +7,7 @@ import logging
 import socket
 import time
 import sys
+import re
 
 buffer_size = 8192
 
@@ -82,9 +83,10 @@ def codes(x):
 		"220": "220 Service ready",
 		"330": "330 User response",
 		"331": "331 User name ok, need password",
-		"332": "331 Password sent",
+		"332": "332 Password sent",
 		"230": "230 User logged in",
-		"149": "149 initializing testing",
+		"001": "ls",
+		"002": "get",
 	}.get(x, 500)
 def accept(sock_a, mask):
 	global clients_connection, clients_ready, CLIENTS
@@ -144,13 +146,19 @@ def read_write(conn, mask):
 				if not query[0][1] in password:
 					logging.debug(f"{bcolors.FAIL}[E] Incorrect password{bcolors.ENDC}")
 					exit()
-				logging.debug(f"{bcolors.OKGREEN}[I] User logged succesful{bcolors.ENDC}")
+				logging.debug(f"{bcolors.OKGREEN}[I] User logged succesful!{bcolors.ENDC}")
 				con.commit()
 				con.close()
 				messages[client] = codes("230")
-			elif codes("149") in sdata:
-				# messages[client] = codes("149")
-				logging.debug(f"Must init testing")
+			elif codes("001") in sdata:
+				logging.debug(f"Command List directory")
+				messages[client] = f"{codes('001')} {popen('ls books').read()}"
+			elif codes("002") in sdata:
+				split = re.split("get", sdata)
+				book = split[1].replace(" ", "")
+				logging.debug(f"Command get file")
+				messages[client] = f"{codes('002')} {book}"
+				
 			if "END_CONNECTION" in sdata:
 				logging.debug(f"{bcolors.FAIL} END CONNECTION {bcolors.ENDC}")
 				end_connection.set()
