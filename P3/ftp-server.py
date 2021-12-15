@@ -231,7 +231,7 @@ def connections_manager():
 	global all_clients_ready, CLIENTS
 	sock_accept = socket.socket()
 	sock_accept.bind((HOST, PORT))
-	sock_accept.listen(10)
+	sock_accept.listen(100)
 	sock_accept.setblocking(False)
 	sel.register(sock_accept, selectors.EVENT_READ, accept)
 	logging.debug(f"Socket bound {HOST}:{PORT}")
