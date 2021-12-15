@@ -13,9 +13,9 @@ buffer_size = 8192
 
 sel = selectors.DefaultSelector()
 
-end_connection = threading.Event()
 
 clients_connection = []
+end_connection = []
 clients_ready = []
 port_numbers = []
 reply_from = []
@@ -25,6 +25,7 @@ users = []
 all_clients_ready = False
 
 HOST = "192.168.0.13"
+DATA_PORTS = 8081
 PORT = 8080
 CLIENTS = 1
 
@@ -49,6 +50,18 @@ class bcolors:
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
 
+def codes(x):
+	return {
+		"220": "220 Service ready",
+		"330": "330 User response",
+		"331": "331 User name ok, need password",
+		"332": "332 Password sent",
+		"230": "230 User logged in",
+		"001": "ls",
+		"002": "get",
+		"003": "003 Data connection port request",
+		"004": "004 Data connection response",
+	}.get(x, 500)
 def clients_thread(conn, id):
 	global clients_connection, port_numbers
 	port_numbers.append(conn.getpeername()[1])
@@ -58,13 +71,12 @@ def clients_thread(conn, id):
 	ac = f"{bcolors.BOLD}{bcolors.UNDERLINE}{bcolors.OKCYAN}Hi! You are client {id + 1}\n{bcolors.ENDC}"
 	conn.sendall(str.encode(ac))
 	counter = 0
-	while not end_connection.isSet():
-		time.sleep(0.2)
+	while not all_connections_ended():
+		time.sleep(0.1)
 		events = sel.select()
 		key, mask = events[id]
 		callback = key.data
 		callback(key.fileobj, mask)
-		# logging.debug(f"{bcolors.WARNING}Client {id + 1} CONDITION {reply_from[id].isSet()} && {mask & selectors.EVENT_READ}{bcolors.ENDC}")
 		if reply_from[id].isSet() and mask & selectors.EVENT_READ:
 			reply_from[id].clear()
 			counter += 1
@@ -80,16 +92,6 @@ def next_client(id):
 	if id >= CLIENTS - 1:
 		return 0
 	return id + 1
-def codes(x):
-	return {
-		"220": "220 Service ready",
-		"330": "330 User response",
-		"331": "331 User name ok, need password",
-		"332": "332 Password sent",
-		"230": "230 User logged in",
-		"001": "ls",
-		"002": "get",
-	}.get(x, 500)
 def accept(sock_a, mask):
 	global clients_connection, clients_ready, CLIENTS
 	conn, addr = sock_a.accept()
@@ -97,10 +99,12 @@ def accept(sock_a, mask):
 	conn.setblocking(False)
 	if clients_connection[0].isSet():
 		logging.debug(f"{bcolors.WARNING}ADDING A CLIENT... {bcolors.ENDC}")
-		messages.append("Message number 1")
+		users.append("")
+		messages.append("220 Service ready")
 		reply_from.append(threading.Event())
-		clients_connection.append(threading.Event())
 		clients_ready.append(threading.Event())
+		end_connection.append(threading.Event())
+		clients_connection.append(threading.Event())
 		CLIENTS += 1
 	for i, cc in enumerate(clients_connection):
 		if not cc.isSet():
@@ -112,12 +116,13 @@ def accept(sock_a, mask):
 			ct.start()
 			cc.set()
 			return
-def get_command():
-	global book
+def get_command(client, data_port):
+	global book, DATA_PORTS
+	DATA_PORTS += 1
 	lines_total = 0
 	with open(f"./books/{book}", "r") as file:
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as data_connection:
-			data_connection.bind((HOST, 8081))
+			data_connection.bind((HOST, data_port))
 			logging.debug(f"Waiting for client connection... ")
 			data_connection.listen()
 			data_conn, data_addr = data_connection.accept()
@@ -129,20 +134,26 @@ def get_command():
 				for line in file.readlines():
 					lines_total += 1
 				data_conn.sendall(str.encode(f"lines_total: {lines_total}"))
-				i = 0
+				i = 0 
 				file.seek(0, 0)
 				for line in file.readlines():
 					percentage = "{:.0f}".format(i*100/lines_total)
-					print(f"Progress: {percentage}%")
+					clear()
+					print(f"Progress in client {client}: {percentage}%")
 					data_conn.sendall(str.encode(line))
 					i += 1
-					time.sleep(0.1)
+					time.sleep(0.001)
 				data_conn.sendall(str.encode("BOOK_TRANSMITION_ENDED"))
 				logging.debug("End book transmition...")
 				logging.debug("Waiting for commands...")
 def read_write(conn, mask):
-	global users, messages, port_numbers, clients_ready, all_clients_ready, book
+	global users, messages, port_numbers, clients_ready, all_clients_ready, book, DATA_PORTS
 	client = port_numbers.index(conn.getpeername()[1])
+	gc = threading.Thread(
+				name="Get command",
+				target=get_command,
+				args=(client, DATA_PORTS,)
+			)
 	if mask & selectors.EVENT_READ:
 		data = conn.recv(buffer_size) 
 		if data:
@@ -188,14 +199,13 @@ def read_write(conn, mask):
 				book = split[1].replace(" ", "")
 				logging.debug(f"Command get file")
 				messages[client] = f"{codes('002')} {book}"
-				gc = threading.Thread(
-						name="Get command",
-						target=get_command
-					)
+			elif codes("003") in sdata:
+				logging.debug(f"{codes('004')} {DATA_PORTS}")
+				messages[client] = f"{codes('004')} {DATA_PORTS}"
 				gc.start()
 			elif "END_CONNECTION" in sdata:
 				logging.debug(f"{bcolors.FAIL} END CONNECTION {bcolors.ENDC}")
-				end_connection.set()
+				end_connection[client].set()
 			else:
 				logging.debug(f"Command not found")
 				messages[client] = f"Command not found"
@@ -210,8 +220,13 @@ def read_write(conn, mask):
 			sel.unregister(conn)
 			conn.close()
 	if mask & selectors.EVENT_WRITE:
-		# logging.debug(f"Replying to CLIENT {client + 1}")
 		conn.sendall(str.encode(messages[client]))
+def all_connections_ended():
+	global end_connection
+	for ec in end_connection:
+		if not ec.isSet():
+			return False
+		return True
 def connections_manager():
 	global all_clients_ready, CLIENTS
 	sock_accept = socket.socket()
@@ -221,7 +236,7 @@ def connections_manager():
 	sel.register(sock_accept, selectors.EVENT_READ, accept)
 	logging.debug(f"Socket bound {HOST}:{PORT}")
 	logging.debug("Listening connections...")
-	while not end_connection.isSet():
+	while not all_connections_ended():
 		events = sel.select()
 		for key, mask in events:
 			if mask & selectors.EVENT_READ and key.data.__name__ == "accept":
@@ -239,6 +254,7 @@ if __name__ == '__main__':
 	messages.append("220 Service ready")
 	reply_from.append(threading.Event())
 	clients_ready.append(threading.Event())
+	end_connection.append(threading.Event())
 	clients_connection.append(threading.Event())
 	sm = threading.Thread(
 			name="Connections Manager",

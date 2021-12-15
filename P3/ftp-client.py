@@ -15,6 +15,7 @@ buffer_size = 8192
 counter = 1
 message = ""
 stuff = ""
+book = ""
 
 turn_gotten = threading.Event()
 
@@ -43,6 +44,8 @@ def codes(x):
 		"230": "230 User logged in",
 		"001": "ls",
 		"002": "get",
+		"003": "003 Data connection port request",
+		"004": "004 Data connection response",
 	}.get(x, 500)
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
@@ -51,8 +54,7 @@ def receive(sock_a):
 	data = sock_a.recv(buffer_size)
 	return str(data, errors='ignore')
 def printer(sock_a):
-	global stuff, message
-	# logging.debug(f"Printer initialized")
+	global stuff, message, book
 	while True:
 		if "You lose!" in stuff or "You Win!!!" in stuff:
 			exit()
@@ -75,50 +77,54 @@ def printer(sock_a):
 			message = ""
 		elif codes("002") in stuff:
 			logging.debug(f"Get file command... {stuff}")
+			split = re.split("get", stuff)
+			book = split[1].replace(" ", "")
+			logging.debug(f"You chose {book}")
+			message = codes("003")
+			logging.debug(f"Sending port request PRESS ENTER")
+		elif codes("004") in stuff:
 			for i in range(3):
 				logging.debug(f"Waiting {3 - i}... ")
 				time.sleep(1)
-			split = re.split("get", stuff)
-			book = split[1].replace(" ", "")
-			with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-				logging.debug("Establishing connection...")
-				s.connect((HOST, 8081))
-				s.sendall(b"Ready to recieve data")
-				logging.debug("Waiting for response...")
-				stream = s.recv(buffer_size)
-				recieved_string = stream.decode("utf-8")
-				q = recieved_string.split("lines_total: ")
-				lines_total = int(q[1])
-				with open(f"./recieved_books/{book}", "w") as file:
-					i = 0
-					while True:
-						stream = s.recv(buffer_size)
-						recieved_string = stream.decode("utf-8")
-						if "BOOK_TRANSMITION_ENDED" in recieved_string:
-							logging.debug("Book transmition ended")
-							logging.debug("Waiting for more commands")
-							break
-						percentage = "{:.0f}".format(i*100/lines_total)
-						print(f"Progress: {percentage}%")
-						file.write(recieved_string)
-						i += 1
+			split = re.split("Data connection response ", stuff)
+			port = split[1].replace(" ", "")
+			logging.debug(f"Data port gotten: {int(port)}")
+			book_receiver(int(port))
 			message = ""
 		elif "END_CONNECTION" in stuff:
 			exit()
 		if not turn_gotten.isSet():
 			stuff = receive(sock_a)
-			# logging.debug(f"Stuff: {stuff}")
-			# clear()
 			s = re.sub(f"Your turn {counter}", "", stuff)
-			# print(s)
-		# time.sleep(1)
-
+def book_receiver(port):
+	global book
+	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+		logging.debug(f"Establishing connection... HOST: {HOST}, PORT: {port}")
+		s.connect((HOST, port))
+		s.sendall(b"Ready to recieve data")
+		logging.debug("Waiting for response...")
+		stream = s.recv(buffer_size)
+		recieved_string = stream.decode("utf-8")
+		q = recieved_string.split("lines_total: ")
+		lines_total = int(q[1])
+		with open(f"./recieved_books/{book}", "w") as file:
+			i = 0
+			while True:
+				stream = s.recv(buffer_size)
+				recieved_string = stream.decode("utf-8")
+				if "BOOK_TRANSMITION_ENDED" in recieved_string:
+					logging.debug("Book transmition ended")
+					logging.debug("Waiting for more commands")
+					break
+				percentage = "{:.0f}".format(i*100/lines_total)
+				clear()
+				print(f"Progress: {percentage}%")
+				file.write(recieved_string)
+				i += 1
 def make_movement(sock_a):
 	global turn_gotten, stuff, counter, message
 	while True:
-		# logging.debug(f"Waiting for turn")
 		turn_gotten.wait()
-		# logging.debug("Input message: ")
 		input_message = input()
 		sock_a.sendall(str.encode(f"{message} {input_message}"))
 		message = ""
@@ -138,7 +144,6 @@ if __name__ == '__main__':
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 		first_message = ""
 		s.connect((HOST, int(PORT)))
-		# clear()
 		data = s.recv(buffer_size)
 		first_message = f"I'm a client"
 		s.sendall(str.encode(first_message))
