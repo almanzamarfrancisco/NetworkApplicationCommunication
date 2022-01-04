@@ -45,10 +45,11 @@ logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-
 
 def search_in_cache(data):
 	global cache
+	logging.debug(f"======>>>>{cache}")
 	for c in cache:
 		if data == c["host_name"]:
 			logging.debug(f"Found {c['host_name']} in ip addres {c['ip_address']}")
-			return c['ip_address']
+			return json.dumps(c)
 	return False
 def request_ip(data):
 	message = ""
@@ -71,6 +72,7 @@ def request_ip(data):
 		message = response[0].decode()
 	return message
 def resolver(sock_a, address_port, id, data):
+	global cache
 	logging.debug(f"Searching...")
 	message = search_in_cache(data)
 	if not message:
@@ -86,7 +88,8 @@ def resolver(sock_a, address_port, id, data):
 					logging.debug(f"{bcolors.OKGREEN}Found!{bcolors.ENDC}")
 					break
 		message = request_ip(data)
-	logging.debug("Sending response to client... ")
+		cache.append(json.loads(message))
+	logging.debug(f"Sending response to client... {message}")
 	bytesToSend = str.encode(message)
 	sock_a.sendto(bytesToSend, address_port)
 def accept(sock_a, mask):
