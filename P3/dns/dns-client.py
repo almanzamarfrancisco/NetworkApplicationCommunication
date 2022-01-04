@@ -29,8 +29,9 @@ logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-
 if __name__ == '__main__':
 	connection_to = (HOST, PORT)
 	with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
-		message = "Hello UDP Server"
+		message = "ipn.mx"
+		# message = "facebook.com"
 		bytesToSend = str.encode(message)
 		s.sendto(bytesToSend, connection_to)
 		message_received = s.recvfrom(bufferSize)
-		logging.debug(f"Message from Server {message_received[0]}")
+		logging.debug(f"Message from Server {bcolors.OKGREEN}{message_received[0].decode()}{bcolors.ENDC}")

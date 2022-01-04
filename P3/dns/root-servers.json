@@ -1,0 +1,67 @@
+[
+	{
+		"host_name": "a.root-servers.net",
+		"ip_address": "198.41.0.4",
+		"operator": "Verisign, Inc."
+	},
+	{
+		"host_name": "b.root-servers.net",
+		"ip_address": "199.9.14.201",
+		"operator": "University of Southern California,"
+	},
+	{
+		"host_name": "c.root-servers.net",
+		"ip_address": "192.33.4.12",
+		"operator": "Cogent Communications"
+	},
+	{
+		"host_name": "d.root-servers.net",
+		"ip_address": "199.7.91.13",
+		"operator": "University of Maryland"
+	},
+	{
+		"host_name": "e.root-servers.net",
+		"ip_address": "192.203.230.10",
+		"operator": "NASA (Ames Research Center)"
+	},
+	{
+		"host_name": "f.root-servers.net",
+		"ip_address": "192.5.5.241",
+		"operator": "Internet Systems Consortium, Inc."
+	},
+	{
+		"host_name": "g.root-servers.net",
+		"ip_address": "192.112.36.4",
+		"operator": "US Department of Defense (NIC)"
+	},
+	{
+		"host_name": "h.root-servers.net",
+		"ip_address": "198.97.190.53",
+		"operator": "US Army (Research Lab)"
+	},
+	{
+		"host_name": "i.root-servers.net",
+		"ip_address": "192.36.148.17",
+		"operator": "Netnod"
+	},
+	{
+		"host_name": "j.root-servers.net",
+		"ip_address": "192.58.128.30",
+		"operator": "Verisign, Inc."
+	},
+	{
+		"host_name": "k.root-servers.net",
+		"ip_address": "193.0.14.129",
+		"operator": "RIPE NCC"
+	},
+	{
+		"host_name": "l.root-servers.net",
+		"ip_address": "199.7.83.42",
+		"operator": "ICANN"
+	},
+	{
+		"host_name": "m.root-servers.net",
+		"ip_address": "202.12.27.33",
+		"operator": "WIDE Project"
+	}
+]

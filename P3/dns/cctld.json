@@ -1,0 +1,26 @@
+[
+	{
+		"host_name": "o.mx-ns.mx",
+		"ip_address": "200.23.1.1"
+	},
+	{
+		"host_name": "c.mx-ns.mx",
+		"ip_address": "192.100.224.1"
+	},
+	{
+		"host_name": "m.mx-ns.mx",
+		"ip_address": "200.94.176.1"
+	},
+	{
+		"host_name": "e.mx-ns.mx",
+		"ip_address": "189.201.244.1"
+	},
+	{
+		"host_name": "x.mx-ns.mx",
+		"ip_address": "201.131.252.1"
+	},
+	{
+		"host_name": "i.mx-ns.mx",
+		"ip_address": "207.248.68.1"
+	}
+]
