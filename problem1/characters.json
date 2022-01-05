@@ -1,0 +1,194 @@
+[
+	{
+		"name": "Alex",
+		"gender": "male",
+		"hair": "black",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Alfred",
+		"gender": "male", 
+		"hair": "red",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Anita",
+		"gender": "female",
+		"hair": "blonde",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Anne",
+		"gender": "female", 
+		"hair": "black",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Bernard",
+		"gender": "male", 
+		"hair": "brown",
+		"hat": "yes",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Bill",
+		"gender": "male", 
+		"hair": "hairless",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Charles",
+		"gender": "male", 
+		"hair": "blonde",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Claire",
+		"gender": "female", 
+		"hair": "red",
+		"hat": "yes",
+		"moustache": "no",
+		"glasses": "yes"
+	},
+	{
+		"name": "David",
+		"gender": "male", 
+		"hair": "blonde",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Eric",
+		"gender": "male", 
+		"hair": "blonde",
+		"hat": "yes",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Frans",
+		"gender": "male", 
+		"hair": "red",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "George",
+		"gender": "male", 
+		"hair": "gray",
+		"hat": "yes",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Herman",
+		"gender": "male", 
+		"hair": "hairless",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Joe",
+		"gender": "male", 
+		"hair": "blonde",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "yes"
+	},
+	{
+		"name": "Maria",
+		"gender": "female", 
+		"hair": "brown",
+		"hat": "yes",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Max",
+		"gender": "male", 
+		"hair": "black",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "no"
+	},
+	{
+		"name": "Paul",
+		"gender": "male", 
+		"hair": "gray",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "yes"
+	},
+	{
+		"name": "Peter",
+		"gender": "male", 
+		"hair": "gray",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Philip",
+		"gender": "male", 
+		"hair": "black",
+		"hat": "no",
+		"moustache": "black",
+		"glasses": "no"
+	},
+	{
+		"name": "Richard",
+		"gender": "male", 
+		"hair": "hairless",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Robert",
+		"gender": "male", 
+		"hair": "brown",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Sam",
+		"gender": "male", 
+		"hair": "hairless",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "yes"
+	},
+	{
+		"name": "Susan",
+		"gender": "female", 
+		"hair": "gray",
+		"hat": "no",
+		"moustache": "no",
+		"glasses": "no"
+	},
+	{
+		"name": "Tom",
+		"gender": "male", 
+		"hair": "hairless",
+		"hat": "no",
+		"moustache": "yes",
+		"glasses": "yes"
+	}
+]

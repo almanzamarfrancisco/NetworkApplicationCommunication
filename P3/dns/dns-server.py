@@ -45,7 +45,6 @@ logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-
 
 def search_in_cache(data):
 	global cache
-	logging.debug(f"======>>>>{cache}")
 	for c in cache:
 		if data == c["host_name"]:
 			logging.debug(f"Found {c['host_name']} in ip addres {c['ip_address']}")
