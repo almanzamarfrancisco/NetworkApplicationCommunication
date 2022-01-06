@@ -39,8 +39,7 @@ if __name__ == '__main__':
 	has_specific_feature = False # This variable says if a specific feature is asked
 	with open("characters.json") as f:
 		characters = json.load(f)
-	# n = random.randint(0,len(characters))
-	n = 23
+	n = random.randint(0,len(characters))
 	for i, c in enumerate(characters):
 		if i == n:
 			character_choosed = c.copy()
