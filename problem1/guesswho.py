@@ -6,6 +6,7 @@ import socket
 import random
 import json
 import time
+import re
 
 bufferSize = 1024
 
@@ -32,6 +33,7 @@ if __name__ == '__main__':
 	character_choosed = {}
 	key_words = []
 	end_game = False
+	attempts = 3
 	# There are 2 types of features yes/no feature and specific feature
 	feature = ""
 	has_feature = False # This variable says if the choosed_character has the yes/no feature
@@ -50,27 +52,42 @@ if __name__ == '__main__':
 			if v not in key_words and "yes" not in v and "no" not in v:
 				key_words.append(v)
 	character_keys = list(character_choosed.keys())
+	character_names = [(c['name']) for c in characters]
 	key_words += character_keys
 	logging.debug(f"Physical Characteristics you can ask for: {character_keys}")
 	logging.debug(f"Key words: {key_words}")
 	while not end_game:
 		question = input(f"Ask your question: ")
 		key_words_asked = []
-		for i, k in enumerate(key_words):
-			if k in question:
-				# logging.debug(f"You ask for: {k}")
-				if k not in key_words_asked:
+		for k in key_words:
+			match = re.search(f" {k}", question) # There are cases that keywords are in Character names
+			if bool(match) and k not in key_words_asked:
 					key_words_asked.append(k)
 		# Exception in male and female
-		if "female" in key_words_asked:
-			key_words_asked.remove('male')
-		logging.debug(f"key_words_asked: {key_words_asked}")
+		if "female" in key_words_asked and "male" in key_words_asked:
+			key_words_asked.remove("male")
 		if len(key_words_asked) == 0:
-			print(f"{bcolors.WARNING}I didn't catch that, try asking with the keywords suggested :){bcolors.ENDC}")
+			name_found = False
+			for cn in character_names:
+				if cn in question:
+					name_found = True
+					if cn == character_choosed["name"]:
+						print(f"{bcolors.OKGREEN}Yeah! You win!! :D{bcolors.ENDC}")
+						end_game = True
+					else:
+						attempts -= 1
+						if attempts <= 0:
+							print(f"{bcolors.FAIL}You lose!! xD{bcolors.ENDC}")
+							end_game = True
+						else:
+							print(f"{bcolors.WARNING}Nope! you have {attempts} attemps:| {bcolors.ENDC}")
+			if not name_found:
+				print(f"{bcolors.WARNING}I didn't catch that, try asking with the keywords suggested :){bcolors.ENDC}")
 			continue
 		if len(key_words_asked) > 2:
 			print(f"{bcolors.WARNING}I didn't catch that, try asking one feature at time :){bcolors.ENDC}")
 			continue
+		logging.debug(f"key_words_asked: {key_words_asked}")
 		# Discard characters
 		for c_feature in character_choosed.keys():
 			for k in key_words_asked:
@@ -94,25 +111,25 @@ if __name__ == '__main__':
 						else:
 							logging.debug(f"{bcolors.OKGREEN}NO{bcolors.ENDC}")
 							has_specific_feature = False
-		logging.debug(f"My character feature: {feature}::{character_choosed[feature]}")
+		# logging.debug(f"My character feature: {feature}::{character_choosed[feature]}")
 		for c in characters.copy():
 			# logging.debug(f"{c['name']}: c[{feature}] {c[feature]}, {has_feature and c[feature] == 'no'}")
 			if has_feature and c[feature] == "no":
-				logging.debug(f"Discarting: {c['name']}")
+				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif not has_feature and c[feature] == "yes":
-				logging.debug(f"Discarting: {c['name']}")
+				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif specific_feature and has_specific_feature and c[feature] != key_words_asked[0]:
-				logging.debug(f"Discarting: {c['name']}")
+				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif specific_feature and not has_specific_feature and c[feature] == key_words_asked[0]:
-				logging.debug(f"Discarting: {c['name']}")
+				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
-		if specific_feature:
-			logging.debug(f"==> {feature} is {character_choosed[feature]}")
-		else:
-			logging.debug(f"==> Has {feature}")
+		# if specific_feature:
+		# 	logging.debug(f"==> {feature} is {character_choosed[feature]}")
+		# else:
+		# 	logging.debug(f"==> Has {feature}")
 		for c in characters:
 			logging.debug(f"{c['name']}: {c[feature]}")
 	has_feature = False # Reinit
