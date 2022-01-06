@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
+
 from os import system, name
-import speech_recognition as sr
 import threading
 import selectors
 import logging
@@ -40,7 +41,6 @@ HOST = "192.168.0.13"
 PORT = 8080
 CLIENTS = 2
 ATTEMPTS = 3
-PROMPT_LIMIT = 5
 
 # Clear screen
 def clear():
@@ -179,52 +179,6 @@ def players_connection_ready():
 		if not pc.is_set():
 			return False
 	return True
-def recognize_speech_from_mic(recognizer, microphone):
-	"""Transcribe speech from recorded from `microphone`.
-
-	Returns a dictionary with three keys:
-	"success": a boolean indicating whether or not the API request was
-			   successful
-	"error":   `None` if no error occured, otherwise a string containing
-			   an error message if the API could not be reached or
-			   speech was unrecognizable
-	"transcription": `None` if speech could not be transcribed,
-			   otherwise a string containing the transcribed text
-	"""
-	# check that recognizer and microphone arguments are appropriate type
-	if not isinstance(recognizer, sr.Recognizer):
-		raise TypeError("`recognizer` must be `Recognizer` instance")
-
-	if not isinstance(microphone, sr.Microphone):
-		raise TypeError("`microphone` must be `Microphone` instance")
-
-	# adjust the recognizer sensitivity to ambient noise and record audio
-	# from the microphone
-	with microphone as source:
-		recognizer.adjust_for_ambient_noise(source)
-		audio = recognizer.listen(source)
-
-	# set up the response object
-	response = {
-		"success": True,
-		"error": None,
-		"transcription": None
-	}
-
-	# try recognizing the speech in the recording
-	# if a RequestError or UnknownValueError exception is caught,
-	#     update the response object accordingly
-	try:
-		response["transcription"] = recognizer.recognize_google(audio)
-	except sr.RequestError:
-		# API was unreachable or unresponsive
-		response["success"] = False
-		response["error"] = "API unavailable"
-	except sr.UnknownValueError:
-		# speech was unintelligible
-		response["error"] = "Unable to recognize speech"
-
-	return response
 def attempt_to_guess(name):
 	global gameover, gameover_string
 	if name == first_gameboard.character_choosed["name"]:
@@ -266,29 +220,7 @@ def get_keywords(s):
 	return keywords_asked
 def ask_question(question):
 	global first_gameboard, characters
-	# create recognizer and mic instances
-	# recognizer = sr.Recognizer()
-	# microphone = sr.Microphone()
-	# while not gameover.is_set():
-	# for j in range(PROMPT_LIMIT):
-	# 	print(f"Ask your question: ")
-	# 	question = recognize_speech_from_mic(recognizer, microphone)
-	# 	if question["transcription"]:
-	# 		break
-	# 	if not question["success"]:
-	# 		break
-	# 	print(f"{bcolors.WARNING}I didn't catch that. What did you say?{bcolors.ENDC}")
-	# # if there was an error, stop the game
-	# if question["error"]:
-	# 	print(f"{bcolors.FAIL}ERROR: {question['error']}{bcolors.ENDC}")
-	# 	break
-	# print(f"You said: {question['transcription']}")
-	# confirmation = input("Press ENTER if it is correct and type no if not: ")
-	# if confirmation.lower() == "no":
-	# 	continue
 	keywords_asked = get_keywords(question)
-	# keywords = get_keywords(question['transcription'])
-
 	# There are 2 types of features yes/no feature and specific feature
 	feature = ""
 	has_feature = False # This variable says if the choosed_character has the yes/no feature
