@@ -21,12 +21,25 @@ class bcolors:
 	OKCYAN = '\033[96m'
 	OKGREEN = '\033[92m'
 	WARNING = '\033[93m'
+	GRAY = '\u001b[38;5;240m'
 	FAIL = '\033[91m'
 	ENDC = '\033[0m'
 	BOLD = '\033[1m'
 	UNDERLINE = '\033[4m'
 
 logging.basicConfig(level=logging.DEBUG,format=f'{bcolors.OKCYAN}(%(threadName)-10s){bcolors.ENDC} %(message)s',)
+
+def show_game_board(rest):
+	with open("characters.json") as f:
+		characters = json.load(f)
+	for i, c in enumerate(characters):
+		if not i%8:
+			print()
+		if c in rest:
+			print(f"{bcolors.OKCYAN}{bcolors.BOLD}{c['name'] : <10}{bcolors.ENDC}", end="")
+		else:
+			print(f"{bcolors.GRAY}{c['name'] : <10}{bcolors.ENDC}", end="")
+	print()
 
 if __name__ == '__main__':
 	characters = []
@@ -56,6 +69,7 @@ if __name__ == '__main__':
 	key_words += character_keys
 	logging.debug(f"Physical Characteristics you can ask for: {character_keys}")
 	logging.debug(f"Key words: {key_words}")
+	show_game_board(characters)
 	while not end_game:
 		question = input(f"Ask your question: ")
 		key_words_asked = []
@@ -130,8 +144,7 @@ if __name__ == '__main__':
 		# 	logging.debug(f"==> {feature} is {character_choosed[feature]}")
 		# else:
 		# 	logging.debug(f"==> Has {feature}")
-		for c in characters:
-			logging.debug(f"{c['name']}: {c[feature]}")
-	has_feature = False # Reinit
-	specific_feature = False # Reinit
-	has_specific_feature = False # Reinit
+		show_game_board(characters)
+		has_feature = False # Reinit
+		specific_feature = False # Reinit
+		has_specific_feature = False # Reinit
