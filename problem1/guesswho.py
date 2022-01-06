@@ -32,10 +32,15 @@ if __name__ == '__main__':
 	character_choosed = {}
 	key_words = []
 	end_game = False
-	a = False
+	# There are 2 types of features yes/no feature and specific feature
+	feature = ""
+	has_feature = False # This variable says if the choosed_character has the yes/no feature
+	specific_feature = False # This variable says if a specific feature is asked
+	has_specific_feature = False # This variable says if a specific feature is asked
 	with open("characters.json") as f:
 		characters = json.load(f)
-	n = random.randint(0,len(characters))
+	# n = random.randint(0,len(characters))
+	n = 23
 	for i, c in enumerate(characters):
 		if i == n:
 			character_choosed = c.copy()
@@ -57,32 +62,60 @@ if __name__ == '__main__':
 				# logging.debug(f"You ask for: {k}")
 				if k not in key_words_asked:
 					key_words_asked.append(k)
+		# Exception in male and female
 		if "female" in key_words_asked:
 			key_words_asked.remove('male')
 		logging.debug(f"key_words_asked: {key_words_asked}")
+		if len(key_words_asked) == 0:
+			print(f"{bcolors.WARNING}I didn't catch that, try asking with the keywords suggested :){bcolors.ENDC}")
+			continue
+		if len(key_words_asked) > 2:
+			print(f"{bcolors.WARNING}I didn't catch that, try asking one feature at time :){bcolors.ENDC}")
+			continue
 		# Discard characters
-		aa = ""
-		for ck in character_choosed.keys():
+		for c_feature in character_choosed.keys():
 			for k in key_words_asked:
-				if ck == k:
-					logging.debug(f"{bcolors.WARNING}key_word: {k} and dic key: {ck}{bcolors.ENDC}")
-					aa = ck
-					if character_choosed[ck] == "yes":
-						logging.debug(f"Yes")
-						a = True
+				if c_feature == k:
+					logging.debug(f"{bcolors.WARNING}key_word: {k} and feature: {c_feature}{bcolors.ENDC}")
+					feature = c_feature
+					# Yes/no features
+					if character_choosed[c_feature] == "yes":
+						logging.debug(f"{bcolors.OKGREEN}YES{bcolors.ENDC}")
+						has_feature = True
+					elif character_choosed[c_feature] == "no":
+						logging.debug(f"{bcolors.OKGREEN}NO{bcolors.ENDC}")
+						has_feature = False
+					# Specific feature
 					else:
-						logging.debug(f"No")
-						a = False
-		# for v in character_choosed.values():
-		# 	for k in key_words_asked:
-		# 		if v == k:
-		# 			logging.debug(f"{bcolors.WARNING}key_word: {k} and value: {v}{bcolors.ENDC}")
-		for i, c in enumerate(characters):
-			if a and c[aa] == "no":
+						specific_feature = True
+						feature = key_words_asked[1]
+						if character_choosed[feature] == key_words_asked[0]:
+							logging.debug(f"{bcolors.OKGREEN}YES{bcolors.ENDC}")
+							has_specific_feature = True
+						else:
+							logging.debug(f"{bcolors.OKGREEN}NO{bcolors.ENDC}")
+							has_specific_feature = False
+		logging.debug(f"My character feature: {feature}::{character_choosed[feature]}")
+		for c in characters.copy():
+			# logging.debug(f"{c['name']}: c[{feature}] {c[feature]}, {has_feature and c[feature] == 'no'}")
+			if has_feature and c[feature] == "no":
 				logging.debug(f"Discarting: {c['name']}")
-				del characters[i]
-			elif not a and c[aa] == "yes":
+				characters.remove(c)
+			elif not has_feature and c[feature] == "yes":
 				logging.debug(f"Discarting: {c['name']}")
-				del characters[i]
+				characters.remove(c)
+			elif specific_feature and has_specific_feature and c[feature] != key_words_asked[0]:
+				logging.debug(f"Discarting: {c['name']}")
+				characters.remove(c)
+			elif specific_feature and not has_specific_feature and c[feature] == key_words_asked[0]:
+				logging.debug(f"Discarting: {c['name']}")
+				characters.remove(c)
+		if specific_feature:
+			logging.debug(f"==> {feature} is {character_choosed[feature]}")
+		else:
+			logging.debug(f"==> Has {feature}")
 		for c in characters:
-			logging.debug(c)
+			logging.debug(f"{c['name']}: {c[feature]}")
+	has_feature = False # Reinit
+	specific_feature = False # Reinit
+	has_specific_feature = False # Reinit
