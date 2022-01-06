@@ -94,6 +94,7 @@ class PlayerGameBoard():
 		self.character_choosed = characters[n].copy()
 		logging.debug(f"Choosed character: {bcolors.OKGREEN}{self.character_choosed['name']}{bcolors.ENDC}")
 	def showGameBoard(self, cts):
+		print(f"{bcolors.BOLD}{bcolors.UNDERLINE} {'GUESS WHO? - THE GAME' : <25} {bcolors.ENDC}")
 		for i, c in enumerate(cts):
 			if not i%8:
 				print()
@@ -105,7 +106,7 @@ class PlayerGameBoard():
 		print(f"Current question: {self.current_question}")
 		print(f"Current answer: {self.current_answer}")
 	def getGameBoard(self, cts):
-		s = ""
+		s = f"{bcolors.BOLD}{bcolors.UNDERLINE} {'GUESS WHO? - THE GAME' : <25} {bcolors.ENDC}"
 		for i, c in enumerate(cts):
 			if not i%8:
 				s += "\n"
@@ -225,13 +226,15 @@ def recognize_speech_from_mic(recognizer, microphone):
 
 	return response
 def attempt_to_guess(name):
-	global gameover_string
+	global gameover, gameover_string
 	if name == first_gameboard.character_choosed["name"]:
+		gameover.set()
 		print(f"{bcolors.OKGREEN}Yeah! You win!! :D Time: {first_gameboard.stopClock()}{bcolors.ENDC}")
 		end_game = True
 	else:
 		ATTEMPTS -= 1
 		if ATTEMPTS <= 0:
+			gameover.set()
 			gameover_string = f"{bcolors.FAIL}You lose!! xD Time:{first_gameboard.stopClock()}{bcolors.ENDC}"
 			end_game = True
 		else:
@@ -249,16 +252,17 @@ def get_keywords(s):
 	if len(keywords_asked) == 0:
 		name_found = False
 		for cn in character_names:
-			if cn in s:
+			result = re.search(cn, s)
+			if bool(result):
 				name_found = True
-				attempt_to_guess(cn["name"])
+				attempt_to_guess(cn)
 		if not name_found:
 			print(f"{bcolors.WARNING}I didn't catch that, try asking with the keywords suggested :){bcolors.ENDC}")
-		return ""
+			return ""
 	if len(keywords_asked) > 2:
 		print(f"{bcolors.WARNING}I didn't catch that, try asking one feature at time :){bcolors.ENDC}")
 		return ""
-	logging.debug(f"keywords_asked: {keywords_asked}")
+	# logging.debug(f"keywords_asked: {keywords_asked}")
 	return keywords_asked
 def ask_question(question):
 	global first_gameboard, characters
@@ -293,6 +297,8 @@ def ask_question(question):
 	# logging.debug(f"Physical Characteristics you can ask for: {character_keys}")
 	# logging.debug(f"Key words: {keywords}")
 	first_gameboard.current_question = question
+	if gameover.is_set():
+		return
 	# Discard characters
 	for c_feature in characters[0].keys():
 		for k in keywords_asked:

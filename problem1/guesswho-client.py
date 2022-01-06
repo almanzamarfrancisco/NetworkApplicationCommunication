@@ -14,6 +14,7 @@ buffer_size = 8192
 gameboard = ""
 counter = 0
 turn_gotten = threading.Event()
+gameover = threading.Event()
 
 class bcolors:
 	HEADER = '\033[95m'
@@ -39,11 +40,14 @@ def receive(sock_a):
 def printer(sock_a):
 	global gameboard
 	logging.debug(f"Printer initialized")
-	while True:
-		if "You lose!" in gameboard or "You Win!!!" in gameboard:
+	while not gameover.is_set():
+		if "You lose!" in gameboard or "You Win!!" in gameboard:
+			print(gameboard)
 			exit()
 		elif f"Your turn {counter}" in gameboard:
-			gameboard.replace("Your turn {counter}", "")
+			clear()
+			print(gameboard)
+			gameboard.replace(f"Your turn {counter}", "")
 			if not turn_gotten.is_set():
 				turn_gotten.set()
 				gameboard = ""
@@ -55,19 +59,27 @@ def printer(sock_a):
 			clear()
 			print(gameboard)
 		time.sleep(1)
-
+	else:
+		print(gameboard)
 def make_movement(sock_a):
 	global turn_gotten, gameboard, counter
-	while True:
+	while not gameover.is_set():
 		logging.debug(f"Waiting for turn")
 		turn_gotten.wait()
 		logging.debug("Your question. Don't forget the question marker '?': ")
 		message = input()
+		if "?" not in message:
+			print(f"{bcolors.WARNING}You forgot the question marker! xD Write again please: {bcolors.ENDC}")
+			continue
+		elif "END_GAME" in message:
+			pass
 		sock_a.sendall(str.encode(message))
 		turn_gotten.clear()
 		counter += 1
 		gameboard = ""
 		time.sleep(1)
+	else:
+		print(gameboard)
 if __name__ == '__main__':
 	# if len(sys.argv) >= 3:
 	# 	HOST = sys.argv[1]
@@ -81,7 +93,8 @@ if __name__ == '__main__':
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 		first_message = ""
 		s.connect((HOST, int(PORT)))
-		# clear()
+		clear()
+		logging.debug("I'm tired braahh!")
 		data = s.recv(buffer_size)
 		sdata = data.decode("utf-8")
 		if "Hi! You are player 1" in sdata:
