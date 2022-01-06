@@ -194,25 +194,15 @@ if __name__ == '__main__':
 						else:
 							logging.debug(f"{bcolors.OKGREEN}NO{bcolors.ENDC}")
 							has_specific_feature = False
-		# logging.debug(f"My character feature: {feature}::{character_choosed[feature]}")
 		for c in characters.copy():
-			# logging.debug(f"{c['name']}: c[{feature}] {c[feature]}, {has_feature and c[feature] == 'no'}")
 			if has_feature and c[feature] == "no":
-				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif not has_feature and c[feature] == "yes":
-				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif specific_feature and has_specific_feature and c[feature] != key_words_asked[0]:
-				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
 			elif specific_feature and not has_specific_feature and c[feature] == key_words_asked[0]:
-				# logging.debug(f"Discarting: {c['name']}")
 				characters.remove(c)
-		# if specific_feature:
-		# 	logging.debug(f"==> {feature} is {character_choosed[feature]}")
-		# else:
-		# 	logging.debug(f"==> Has {feature}")
 		show_game_board(characters)
 		has_feature = False # Reinit
 		specific_feature = False # Reinit
