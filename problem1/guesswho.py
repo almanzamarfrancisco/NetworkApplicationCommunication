@@ -1,4 +1,5 @@
 from os import system, name
+import speech_recognition as sr
 import threading
 import selectors
 import logging
@@ -9,6 +10,7 @@ import time
 import re
 
 bufferSize = 1024
+PROMPT_LIMIT = 5
 
 def clear():
 	if name == 'nt': # for windows
@@ -41,6 +43,53 @@ def show_game_board(rest):
 			print(f"{bcolors.GRAY}{c['name'] : <10}{bcolors.ENDC}", end="")
 	print()
 
+def recognize_speech_from_mic(recognizer, microphone):
+	"""Transcribe speech from recorded from `microphone`.
+
+	Returns a dictionary with three keys:
+	"success": a boolean indicating whether or not the API request was
+			   successful
+	"error":   `None` if no error occured, otherwise a string containing
+			   an error message if the API could not be reached or
+			   speech was unrecognizable
+	"transcription": `None` if speech could not be transcribed,
+			   otherwise a string containing the transcribed text
+	"""
+	# check that recognizer and microphone arguments are appropriate type
+	if not isinstance(recognizer, sr.Recognizer):
+		raise TypeError("`recognizer` must be `Recognizer` instance")
+
+	if not isinstance(microphone, sr.Microphone):
+		raise TypeError("`microphone` must be `Microphone` instance")
+
+	# adjust the recognizer sensitivity to ambient noise and record audio
+	# from the microphone
+	with microphone as source:
+		recognizer.adjust_for_ambient_noise(source)
+		audio = recognizer.listen(source)
+
+	# set up the response object
+	response = {
+		"success": True,
+		"error": None,
+		"transcription": None
+	}
+
+	# try recognizing the speech in the recording
+	# if a RequestError or UnknownValueError exception is caught,
+	#     update the response object accordingly
+	try:
+		response["transcription"] = recognizer.recognize_google(audio)
+	except sr.RequestError:
+		# API was unreachable or unresponsive
+		response["success"] = False
+		response["error"] = "API unavailable"
+	except sr.UnknownValueError:
+		# speech was unintelligible
+		response["error"] = "Unable to recognize speech"
+
+	return response
+
 if __name__ == '__main__':
 	characters = []
 	character_choosed = {}
@@ -54,7 +103,8 @@ if __name__ == '__main__':
 	has_specific_feature = False # This variable says if a specific feature is asked
 	with open("characters.json") as f:
 		characters = json.load(f)
-	n = random.randint(0,len(characters))
+	# n = random.randint(0,len(characters))
+	n = 14
 	for i, c in enumerate(characters):
 		if i == n:
 			character_choosed = c.copy()
@@ -70,11 +120,30 @@ if __name__ == '__main__':
 	logging.debug(f"Physical Characteristics you can ask for: {character_keys}")
 	logging.debug(f"Key words: {key_words}")
 	show_game_board(characters)
+	# create recognizer and mic instances
+	recognizer = sr.Recognizer()
+	microphone = sr.Microphone()
 	while not end_game:
-		question = input(f"Ask your question: ")
+		# question = input("Ask your question: ")
+		for j in range(PROMPT_LIMIT):
+			print(f"Ask your question: ")
+			question = recognize_speech_from_mic(recognizer, microphone)
+			if question["transcription"]:
+				break
+			if not question["success"]:
+				break
+			print(f"{bcolors.WARNING}I didn't catch that. What did you say?{bcolors.ENDC}")
+		# if there was an error, stop the game
+		if question["error"]:
+			print(f"{bcolors.FAIL}ERROR: {question['error']}{bcolors.ENDC}")
+			break
+		print(f"You said: {question['transcription']}")
+		confirmation = input("Press ENTER if it is correct and type no if not: ")
+		if confirmation.lower() == "no":
+			continue
 		key_words_asked = []
 		for k in key_words:
-			match = re.search(f" {k}", question) # There are cases that keywords are in Character names
+			match = re.search(f" {k}", question["transcription"]) # There are cases that keywords are in Character names
 			if bool(match) and k not in key_words_asked:
 					key_words_asked.append(k)
 		# Exception in male and female
@@ -83,7 +152,7 @@ if __name__ == '__main__':
 		if len(key_words_asked) == 0:
 			name_found = False
 			for cn in character_names:
-				if cn in question:
+				if cn in question["transcription"]:
 					name_found = True
 					if cn == character_choosed["name"]:
 						print(f"{bcolors.OKGREEN}Yeah! You win!! :D{bcolors.ENDC}")
