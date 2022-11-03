@@ -38,13 +38,18 @@ int main(int argc, char **argv){
 		perror("[E] Error to send the message to server");
 		exit(1);
 	}
-	printf ("[I] Waiting for reply ...\n");
-	if (read (sockfd, message, 100) < 0)
-	{	
-		perror ("[E] Error to receive data from client");
-		exit(1);
+	while(1){
+		printf ("[I] Waiting for reply ...\n");
+		if (read (sockfd, message, 100) < 0){	
+			perror ("[E] Error to receive data from client");
+			exit(1);
+		}
+		printf ("-> Server message: %s\n", message);
+		printf ("=> Condition: %d\n", strstr("exit", message));
+		if(strstr(message, "exit"))
+			break;
+		memset(message, 0, sizeof(message));
 	}
-	printf ("Server message: \n%s\n", message);
 	printf ("Closing connection... \n");
 	close(sockfd);
 	return 0;
