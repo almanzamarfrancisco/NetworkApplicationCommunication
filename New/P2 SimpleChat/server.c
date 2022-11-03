@@ -69,20 +69,22 @@ void *client_attender(void *arg){
 		perror("[E] Error to send menssage to client");
 		exit(EXIT_FAILURE);
 	}
-	while(1){
+	memset(message, 0, sizeof(message));
+	for(;EVER;){
+		printf ("[I] Waiting for reply ...\n");
+		if(read(client_sockfd, message, BUFFER_SIZE) < 0){
+			perror ("[E] Error to receive data from client");
+			exit(EXIT_FAILURE);
+		}
+		printf ("-> Client message: %s \n", message);
+		if(!strcmp(message, "exit\n"))
+			break;
+		memset(message, 0, sizeof(message));
 		printf("-> Your message: ");
 		fgets(message, BUFFER_SIZE, stdin);
 		if(write (client_sockfd, message, strlen(message)) < 0){
 			perror("[E] Error to send menssage to client");
 			exit(EXIT_FAILURE);
-		}
-		if(strstr(message, "exit")){
-			if(read(client_sockfd, message, BUFFER_SIZE) < 0){
-				perror ("[E] Error to receive data from client");
-				exit(EXIT_FAILURE);
-			}
-			printf ("-> Client message: %s \n", message);
-			break;
 		}
 	}
 	puts("[I] Closing client connection ...");

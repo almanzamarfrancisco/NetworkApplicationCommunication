@@ -6,18 +6,19 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define PUERTO 5000
-#define TAM_BUFFER 100
-// #define DIR_IP "192.168.100.10"
+#define PORT  			5000
+#define BUFFER_SIZE 	100
+#define EVER			1
 #define DIR_IP "127.0.0.1"
+// #define DIR_IP "192.168.100.10"
 
 int main(int argc, char **argv){
 	int sockfd;
 	struct sockaddr_in server_address;
-	char message[TAM_BUFFER];
+	char message[BUFFER_SIZE];
 	memset (&server_address, 0, sizeof (server_address));
 	server_address.sin_family = AF_INET;
-	server_address.sin_port = htons(PUERTO);
+	server_address.sin_port = htons(PORT );
 	if( inet_pton(AF_INET, DIR_IP, &server_address.sin_addr) <= 0 ){
 		perror("[E] Error to bind direction");
 		exit(1);
@@ -38,17 +39,22 @@ int main(int argc, char **argv){
 		perror("[E] Error to send the message to server");
 		exit(1);
 	}
-	while(1){
+	for(;EVER;){
 		printf ("[I] Waiting for reply ...\n");
 		if (read (sockfd, message, 100) < 0){	
 			perror ("[E] Error to receive data from client");
 			exit(1);
 		}
 		printf ("-> Server message: %s\n", message);
-		printf ("=> Condition: %d\n", strstr("exit", message));
-		if(strstr(message, "exit"))
+		if(!strcmp(message, "exit\n"))
 			break;
 		memset(message, 0, sizeof(message));
+		printf ("=> You: ");
+		fgets(message, BUFFER_SIZE, stdin);
+		if( write(sockfd, message, strlen(message)) < 0 ){
+			perror("[E] Error to send the message to server");
+			exit(1);
+		}
 	}
 	printf ("Closing connection... \n");
 	close(sockfd);
