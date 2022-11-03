@@ -16,10 +16,9 @@ int main(int argc, char **argv){
 	int sockfd;
 	register int i = 0;
 	struct sockaddr_in server_address;
-	char client_message[BUFFER_SIZE], server_message[BUFFER_SIZE];
+	char message[BUFFER_SIZE];
 	int server_struct_length = sizeof(server_address);
-	memset(server_message, '\0', sizeof(server_message));
-    memset(client_message, '\0', sizeof(client_message));
+    memset(message, '\0', sizeof(message));
 	memset (&server_address, 0, sizeof (server_address));
 	
 	if( inet_pton(AF_INET, IP_ADDRESS, &server_address.sin_addr) <= 0 ){
@@ -35,16 +34,23 @@ int main(int argc, char **argv){
 	server_address.sin_port = htons(PORT);
 	server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 	printf ("[I] Connecting ...\n");
-	if(sendto(sockfd, "I'm the client :)", 15, 0,(struct sockaddr*)&server_address, server_struct_length) < 0){
-		perror("[E] Error to send the message to server");
-		exit(1);
+	for(;EVER;){
+		printf ("=> You: ");
+		fgets(message, BUFFER_SIZE, stdin);
+		if(sendto(sockfd, message, strlen(message), 0,(struct sockaddr*)&server_address, server_struct_length) < 0){
+			perror("[E] Error to send the message to server");
+			exit(1);
+		}
+		printf ("[I] Message sent successfully!\n");
+		if(!strcmp(message, "exit\n"))
+			break;
+		if(recvfrom(sockfd, message, sizeof(message), 0,(struct sockaddr*)&server_address, &server_struct_length) < 0){
+			perror("Error while receiving server's message\n");
+			exit(0);
+		}
+		printf("=> Server's response: %s\n", message);
+		memset(message, 0, sizeof(message));
 	}
-	printf ("[I] Message sent successfully!\n");
-	if(recvfrom(sockfd, server_message, sizeof(server_message), 0,(struct sockaddr*)&server_address, &server_struct_length) < 0){
-        perror("Error while receiving server's message\n");
-        exit(0);
-    }
-	printf("=> Server's response: %s\n", server_message);
 	printf ("[I] Closing connection... \n");
 	close(sockfd);
 	return 0;

@@ -20,8 +20,7 @@ int main(int argc, char **argv){
 	pthread_t tid;
 	int sockfd, client_sockfd;
 	struct sockaddr_in server_address;
-	char message[BUFFER_SIZE];
-	memset (&server_address, 0, sizeof (server_address));   //se limpia la estructura con ceros
+	memset (&server_address, 0, sizeof (server_address));
 	server_address.sin_family       = AF_INET;
 	server_address.sin_port         = htons(PORT);
 	server_address.sin_addr.s_addr  = INADDR_ANY;
