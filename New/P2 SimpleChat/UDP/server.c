@@ -26,7 +26,6 @@ int main(int argc, char **argv){
 	// pthread_t tids[NUM_HILOS];
 	int *hilo, nh;
 	pthread_t tid;
-	register int i = 0;
 	int sockfd;
 	struct sockaddr_in server_address, client_address;
 	struct settings *args;
