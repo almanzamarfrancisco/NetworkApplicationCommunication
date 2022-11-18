@@ -69,12 +69,14 @@ void *message_printer(void *arguments){
 	char message[BUFFER_SIZE];
 	int sockfd = args->socket_file_descriptor;
 	int server_struct_length = args->server_struct_length;
+	// register int i = 0;
 	for(;EVER;){
+		// while(i--);
 		if(recvfrom(sockfd, message, sizeof(message), 0,(struct sockaddr*)&args->server_address, &server_struct_length) < 0){
 			perror("Error while receiving server's message\n");
 			exit(0);
 		}
-		printf("\n=> Server's response: %s\n", message);
+		printf("\n=> %s\n", message);
 		memset(message, 0, sizeof(message));
 	}
 }

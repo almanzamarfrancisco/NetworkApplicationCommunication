@@ -23,16 +23,17 @@ struct settings {
 };
 
 int main(int argc, char **argv){
-	int *hilo, nhs[QUEUE_SIZE],nh=0, sockfd;
+	int *hilo, nhs[QUEUE_SIZE],nh=0, sockfd, client_added=0;
 	pthread_t tids[QUEUE_SIZE];
-
 	struct sockaddr_in server_address, client_address;
 	struct settings *args, args_array[QUEUE_SIZE];
 	int client_struct_length = sizeof(client_address);
-	char message[BUFFER_SIZE];
+	char message[BUFFER_SIZE], mask[BUFFER_SIZE];
 	memset (&server_address, 0, sizeof (server_address));
 	memset (&client_address, 0, sizeof (client_address)); 
 	memset(message, '\0', sizeof(message));
+	for(int j;j<QUEUE_SIZE;j++)
+		memset(&args_array[j], 0, sizeof(struct settings)); 
 	args = malloc(sizeof(struct settings));
 	server_address.sin_family = AF_INET;
 	server_address.sin_port = htons(PORT);
@@ -48,25 +49,47 @@ int main(int argc, char **argv){
 		exit(1);
 	}
 	for(;EVER;){
-		printf("[I] Listening for incoming messages...\n\n");
-		if (recvfrom(sockfd, message, BUFFER_SIZE, 0,(struct sockaddr*)&client_address, &client_struct_length) < 0){
+		// printf("[I] Listening for incoming messages...\n\n");
+		if (recvfrom(sockfd, message, BUFFER_SIZE, MSG_OOB,(struct sockaddr*)&client_address, &client_struct_length) < 0){
 			perror("[E] Error to receive");
 			exit(0);
 		}
+		for(int j=0;j<QUEUE_SIZE;j++){
+			memset(mask, '\0', sizeof(mask));
+			snprintf(mask,sizeof(mask),"=> Client port %i: %s\n",ntohs(args->client_address.sin_port), message);
+			if(args_array[j].client_address.sin_port == 0)
+				break;
+			if(args_array[j].client_address.sin_port == client_address.sin_port){
+				client_added = 1;
+				continue;
+			}
+			printf("Sending to: %i\n",ntohs(args_array[j].client_address.sin_port));
+			if (sendto(sockfd, mask, strlen(mask), MSG_PEEK,(struct sockaddr*)&args_array[j].client_address, args_array[j].client_struct_length) < 0){
+				perror("Can't send client message");
+				exit(0);
+			}
+		}
+		if(client_added){
+			client_added = 0;
+			printf("=> Message from client from IP %s and port: %i\n: %s\n",inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port), message);
+			memset(message, '\0', sizeof(message));
+			continue;
+		}
 		printf("[I] Received message from IP: %s and port: %i\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
 		printf("=> Message from client: %s\n", message);
-		if (sendto(sockfd, "Hello stranger! :)", 18, 0,(struct sockaddr*)&client_address, client_struct_length) < 0){
-			perror("Can't send");
-			exit(0);
-		}
+		// if (sendto(sockfd, "Hello stranger! :)", 18, 0,(struct sockaddr*)&client_address, client_struct_length) < 0){
+		// 	perror("Can't send Hello message");
+		// 	exit(0);
+		// }
+		printf("SOMEONE JOINED TO THE CONVERSATION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 		(*args).client_address = client_address;
 		(*args).socket_file_descriptor = sockfd;
 		(*args).client_struct_length = client_struct_length;
 		(*args).local_client_id = nh;
 		args_array[nh] = *args;
 		pthread_create(&tids[nh], NULL, client_attender, (void *)args);
-		printf("==> 2nd Verification: %s and port: %i, nh: %d\n", inet_ntoa((args_array[nh]).client_address.sin_addr), ntohs((args_array[nh]).client_address.sin_port), (args_array[nh]).local_client_id);
 		nh++;
+		printf("\n\t\tUpdated nh: %d\n", nh);
 	}
 	for (nh = 0; nh < QUEUE_SIZE; nh++){
 		pthread_join( tids[nh], (void **)&hilo );
@@ -91,14 +114,17 @@ void *client_attender(void *arguments){
 		// }
 		// if(!strcmp(message, "exit\n"))
 		// 	break;
-		printf("==> Verification: %s and port: %i, nh: %d\n", inet_ntoa(args->client_address.sin_addr), ntohs(args->client_address.sin_port), args->local_client_id);
-		if (recvfrom(sockfd, message, BUFFER_SIZE, 0,(struct sockaddr*)&args->client_address, &client_struct_length) < 0){
+		// printf("[I] => Verification: %s and port: %i, nh: %d\n", inet_ntoa(args->client_address.sin_addr), ntohs(args->client_address.sin_port), args->local_client_id);
+		if (recvfrom(sockfd, message, BUFFER_SIZE, MSG_OOB,(struct sockaddr*)&args->client_address, &client_struct_length) < 0){
 			perror("[E] Error to receive");
 			exit(0);
 		}
-		printf("=> Message from client from IP %s and port: %i\n: %s\n",inet_ntoa(args->client_address.sin_addr), ntohs(args->client_address.sin_port), message);
-		if(!strcmp(message, "exit\n"))
-			break;
+		if(strlen(message)){
+			printf("=> Client: %d -> %s and port: %i\n: %s\n",args->local_client_id,inet_ntoa(args->client_address.sin_addr), ntohs(args->client_address.sin_port), message);
+			memset(message, '\0', sizeof(message));
+			if(!strcmp(message, "exit\n"))
+				break;
+		}
 		memset(message, 0, sizeof(message));
 	}
 }
