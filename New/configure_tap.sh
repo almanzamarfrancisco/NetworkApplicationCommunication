@@ -20,5 +20,5 @@ sudo ip address add $ipstr/$mask dev tap0
 # sudo ip route del 192.168.100.10/32 via 192.168.100.1 dev wlp4s0
 # sudo ip addr del <network_ip>/<cidr> dev tap0
 echo "[I] Adding $network_id to ip route table $gateway_ip"
-sudo ip route add $network_id via $gateway_ip dev wlp4s0
+sudo ip route add $network_id dev tap0
 echo "[I] Done!"
