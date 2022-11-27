@@ -16,9 +16,12 @@ fi
 ipstr="${ipstr[0]}.${ipstr[1]}.${ipstr[2]}.$node"
 echo "[I] Configuring ip in tap0: $ipstr/$mask"
 sudo ip address add $ipstr/$mask dev tap0
+echo "[I] Setting up tap0..."
+sudo ip link set dev tap0 up
 # ip route add <network_ip_id>/<cidr> via <gateway_ip> dev <network_card_name>
 # sudo ip route del 192.168.100.10/32 via 192.168.100.1 dev wlp4s0
 # sudo ip addr del <network_ip>/<cidr> dev tap0
-echo "[I] Adding $network_id to ip route table $gateway_ip"
-sudo ip route add $network_id dev tap0
+echo "[I] Adding $network_id to ip route table with gateway ip: $gateway_ip on dev tap0 *onlink*"
+sudo ip route add $network_id dev via 192.168.100.100 dev tap0 onlink
 echo "[I] Done!"
+# ping -I tap0 192.168.1.5 # IMPORTANT Select interface for pingging

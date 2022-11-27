@@ -7,9 +7,7 @@
 
 #define MAXRECVSTRING   255  /* Longest string to receive */
 #define PORT            5000
-#define BUFFER_SIZE     100
 #define EVER            1
-#define IP_ADDRESS "127.0.0.1"
 
 void DieWithError(char *errorMessage);  /* External error handling function */
 
@@ -30,7 +28,7 @@ int main(int argc, char *argv[]){
 	/* Bind to the broadcast port */
 	if (bind(sock, (struct sockaddr *) &broadcastAddr, sizeof(broadcastAddr)) < 0)
 		DieWithError("bind() failed");
-	for(;;){
+	for(;EVER;){
 		/* Receive a single datagram from the server */
 		if ((recvStringLen = recvfrom(sock, recvString, MAXRECVSTRING, 0, NULL, 0)) < 0)
 			DieWithError("recvfrom() failed");

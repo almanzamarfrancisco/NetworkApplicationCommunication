@@ -17,7 +17,7 @@ int main(int argc, char *argv[]){
 	struct sockaddr_in broadcastAddr; /* Broadcast address */
 	char *broadcastIP;                /* IP broadcast address */
 	unsigned short broadcastPort;     /* Server port */
-	char *sendString;                 /* String to broadcast */
+	char *sendString = (char*)malloc(sizeof(char)*BUFFER_SIZE); /* String to broadcast */
 	int broadcastPermission;          /* Socket opt to set permission to broadcast */
 	unsigned int sendStringLen;       /* Length of string to broadcast */
 	/* Create socket for sending/receiving datagrams */
@@ -31,15 +31,16 @@ int main(int argc, char *argv[]){
 	/* Construct local address structure */
 	memset(&broadcastAddr, 0, sizeof(broadcastAddr));   /* Zero out structure */
 	broadcastAddr.sin_family = AF_INET;                 /* Internet address family */
-	broadcastAddr.sin_addr.s_addr = inet_addr(IP_ADDRESS);/* Broadcast IP address */
+	broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255");/* Broadcast IP address */
 	broadcastAddr.sin_port = htons(PORT);         /* Broadcast port */
-	sendStringLen = strlen("Hi! I'm the server");  /* Find length of sendString */
+	strcpy(sendString, "Hi! I'm the server");
+	sendStringLen = strlen(sendString);  /* Find length of sendString */
 	for (;EVER;){ /* Run forever */
 		 /* Broadcast sendString in datagram to clients every 3 seconds*/
-	if (sendto(sock, sendString, sendStringLen, 0, (struct sockaddr *) 
-		&broadcastAddr, sizeof(broadcastAddr)) != sendStringLen)
-		DieWithError("sendto() sent a different number of bytes than expected");
-		sleep(1);   /* Avoids flooding the network */
+		if (sendto(sock, sendString, sendStringLen, 0, (struct sockaddr *) 
+               &broadcastAddr, sizeof(broadcastAddr)) < 0)
+			DieWithError("[E] Error to send message");
+			sleep(3);   /* Avoids flooding the network */
 }
 	/* NOT REACHED */
 }
