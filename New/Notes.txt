@@ -1,0 +1,85 @@
+Notes 08/11/2022
+Los Routers tienen modos de operación
+R1$ -> Initial mode
+R1# -> Enable
+R1(configure)# -> Configuration mode
+
+debugger
+	In enable mode
+	exit -> one level up
+	end -> to the first label
+	show running config => RAM memory that has configuration files inside
+	startup-config => ROM memory that has configuration files inside
+
+
+	DHCP
+	TFTP
+	HTTP
+
+sudo ifconfig tap0 192.168.0.2 netmask 255.255.255.0 up:
+
+sudo iptables -t nat -A POSTROUTING -o wlp4s0 -j MASQUERADE
+
+1 -> same segment
+	linux 
+	gateway
+	tap0
+2 -> validate routing table
+	ip route
+	static routing (Linux)
+	add new network to ip table
+		(add)sudo ip address add $ipstr/$mask dev tap0
+		(delete)sudo ip addr del 192.168.100.0/24 dev tap0
+		-> Check:
+			# ip link set dev <interface> up
+			# ip link set dev <interface> down
+
+3 -> Check the ip tables from routers
+	router rip
+	version 2
+	network <networkId>
+
+
+	archivos udp tranformar a broadcast
+Notes 18/11/2022
+	add vm to gns3
+		edit preferences add
+		monitor
+		drag
+		configure
+		network check the checkbox
+
+	Practice 3
+		linux host 
+		broadcast server
+
+
+		linux client
+		brodcast client
+	Error
+		IP addresses may not be configured on L2 links.
+			no switchport
+
+====
+tunctl -d tap0
+tunctl -t tap0
+route add default gw 192.168.100.100 tap0
+Select device as default (delete others)
+====
+Allow broadcast on interfaces
+	debug ip packet ?
+	debug ip packet detail 100
+	(config)access-list 100 permit icmp any any 
+	(config-if)ip directed-broadcast
+
+
+Linux funcionará como un dhcp en su misma red
+ahora hay que hacer que linux sea el dhcp de toda la subnet
+=================================================
+tftp-server system:/running-config alias r1-config 1 (Habilita el servidor y system el directorio alias es nombre de archivo)
+
+access-list 1 permit 172.100.84.211
+
+pedir todos los archivos de running config
+
+sudo tftp -4 -m binary 10.100.77.165 69 -c get r1-config

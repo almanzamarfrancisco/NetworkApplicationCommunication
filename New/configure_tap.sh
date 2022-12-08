@@ -1,7 +1,8 @@
 #! /bin/bash
 wlp4s0_ip=`ip addr show wlp4s0 | awk '$1 == "inet" {gsub(/\/.*$/, "", $2); print $2}'`
 mask=`ip -o -f inet addr show wlp4s0 | awk '/scope global/ {print $4}' | grep -o '[^/]*$'`
-gateway_ip=$(/sbin/ip route | awk '/default/ { print $3 }')
+read -p "Enter Gateway ip: " gateway_ip
+# gateway_ip=$(/sbin/ip route | awk '/default/ { print $3 }')
 network_id=$(/sbin/ip route | awk '/scope/ { print $1 }')
 echo "[I] Configuring tap0 with tunctl"
 sudo tunctl -d tap0
@@ -32,7 +33,7 @@ sudo ip route add 192.168.2.0/24 via $gateway_ip dev tap0 onlink
 sudo ip route add 192.168.3.0/24 via $gateway_ip dev tap0 onlink
 sudo ip route add 192.168.8.0/30 via $gateway_ip dev tap0 onlink
 sudo ip route add 192.168.9.0/30 via $gateway_ip dev tap0 onlink
-route add default gw $gateway_ip tap0
+# sudo route add default gw $gateway_ip tap0
 
 echo "[I] Done!"
 # ping -I tap0 192.168.1.5 # IMPORTANT Select interface for pingging
