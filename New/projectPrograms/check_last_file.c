@@ -20,7 +20,6 @@ int main(int argc, char *argv[]){
 	while(1){
 		printf("[I] Checking directory... %2d\n", i);
 		printf("[I] There are: %d files\n", file_buffer_after = list_direcory());
-		printf("[I] file buffer before: %d\n", file_buffer_after);
 		if(file_buffer_before == file_buffer_after)
 			printf("[I] Not changed! :)\n");
 		else{
