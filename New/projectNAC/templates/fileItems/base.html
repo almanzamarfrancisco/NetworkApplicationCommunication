@@ -54,10 +54,14 @@
 			<h1>Backup files server</h1>
 			<p class="lead">Let'start!</p>
 			<p class="lead">
-				<form action="" class="row g-3">
+				<form action="/home" method="post" enctype="multipart/form-data" class="row g-3">
+					{% csrf_token %}
 					<div class="mb-3">
 						<label for="formFile" class="form-label">Upload a file in here</label>
-						<input class="form-control" type="file" id="formFile">
+						<input class="form-control" type="file" id="formFile" name="formFile">
+					</div>
+					<div class="col-auto mx-auto">
+						<button type="submit" class="btn btn-primary mb-3 btn-lg">Upload!</button>
 					</div>
 				</form>
 			</p>

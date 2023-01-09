@@ -5,7 +5,7 @@ from fileItems import views
 urlpatterns = [
 	path(
 		route='',
-		view=views.HomeView,
+		view=views.home_view,
 		name='home',
 	),
 ]
