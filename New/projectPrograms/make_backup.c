@@ -37,8 +37,6 @@ int main(int argc, char *argv[]){
 				perror("ssh_command failure to execute");
 				exit(EXIT_FAILURE);
 			}
-			if(i>4)
-				exit(1);
 		}
 		printf("Last modified name: %s\n", last_modified_file_name);
 		sleep(1);
