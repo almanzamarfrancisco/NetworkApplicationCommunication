@@ -12,6 +12,9 @@
 #define USER "kali"
 #define SERVER "192.168.1.20"
 #define FILE_DESTINATION "/home/kali/Desktop/backup"
+#define USER1 "one"
+#define SERVER1 "192.168.3.20"
+#define FILE_DESTINATION "/home/one/Desktop/backup"
 
 int list_direcory(char **);
 
@@ -32,6 +35,12 @@ int main(int argc, char *argv[]){
 			printf("[I] Changed! :)\n");
 			file_buffer_before = file_buffer_after;
 			sprintf(ssh_command, "scp %s %s@%s:%s", last_modified_file_name, USER, SERVER, FILE_DESTINATION);
+			puts(ssh_command);
+			if(system(ssh_command) < 0){
+				perror("ssh_command failure to execute");
+				exit(EXIT_FAILURE);
+			}
+			sprintf(ssh_command, "scp %s %s@%s:%s", last_modified_file_name, USER1, SERVER1, FILE_DESTINATION1);
 			puts(ssh_command);
 			if(system(ssh_command) < 0){
 				perror("ssh_command failure to execute");
