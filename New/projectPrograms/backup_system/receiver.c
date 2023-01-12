@@ -10,7 +10,7 @@
 #define BUFFER_SIZE 	100
 #define EVER			1
 #define DIR_IP "127.0.0.1"
-// #define DIR_IP "192.168.100.10"
+// #define DIR_IP "192.168.2.20"
 #define SIZE 1024
 
 int main(int argc, char **argv){
@@ -18,7 +18,7 @@ int main(int argc, char **argv){
 
 	FILE *fp;
 	char *filename = (char*)malloc(sizeof(char)*50);
-	char buffer[SIZE];
+	char *buffer = (char*)malloc(sizeof(char)*SIZE);
 
 	struct sockaddr_in server_address;
 	char message[BUFFER_SIZE];
@@ -48,20 +48,29 @@ int main(int argc, char **argv){
 	for(;EVER;){
 		printf("=> Counter: %d\n", counter);
 		// write_file(i, sockfd);
-		printf("Writing file baby... \n");
+		printf("Waiting for file... \n");
 		sprintf(filename, "./received/%drecv%d.txt", ntohs(server_address.sin_port), counter);
 		fp = fopen(filename, "w");
 		while (1) {
 			n = recv(sockfd, buffer, SIZE, 0);
 			if (n <= 0){
+				printf("Broken xS\n");
 				break;
-				// return;
+				// perror(EXIT_FAILURE)
 			}
-			printf(".");
+			printf("=> Recieving...\n");
+			puts(buffer);
+			if(strstr(buffer, "!END!")){
+				printf("=> We have to end\n");
+				buffer[sizeof(buffer)/sizeof(char) - 8] = '\0';
+				fprintf(fp, "%s", buffer);
+				break;
+			}
 			fprintf(fp, "%s", buffer);
 			bzero(buffer, SIZE);
 		}
 		puts("File gotten! :)");
+		fclose(fp);
 		counter++;
 	}
 	printf ("Closing connection... \n");

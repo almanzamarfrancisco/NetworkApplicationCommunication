@@ -138,8 +138,8 @@ void *listen_directory(void *arg){
 			flag = 0;
 		}
 		printf("\t[I] Last modified name: %s\n", last_modified_file_name);
-		// while(k--);
-		sleep(1);
+		while(k--);
+		// sleep(1);
 		// pthread_mutex_lock(&lock);
 		// system("clear");
 		i++;
@@ -176,11 +176,13 @@ void *client_attender(void *arg){
 			}
 			printf("[I] Sending file %s to client...\n", filename);
 			send_file(filename, fp, client_sockfd);
-			sleep(1);
+			// sleep(1);
+			while(n--);
 		}
 		printf("-> counter k: %d\n",k);
 		k++;
-		sleep(1);
+		// sleep(1);
+		while(n--);
 		pthread_mutex_lock(&lock);
 	}
 	puts("[I] Closing client connection ...");
@@ -199,6 +201,13 @@ void send_file(char* filename, FILE *fp, int sockfd){
 			perror("[E] Error in sending file");
 			exit(1);
 		}
-		// bzero(data, SIZE);
 	}
+	bzero(data, SIZE);
+	printf("===========>>>>>>File sent: %s\n", filename);
+	strcpy(data, "!END!");
+	if (send(sockfd, data, sizeof(data), 0) == -1) {
+		perror("[E] Error in sending messages");
+		exit(1);
+	}
+	printf("===========>>>>>>Sent message: END\n");
 }
